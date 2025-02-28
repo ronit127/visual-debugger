@@ -4,11 +4,17 @@ import sys
 import re
 
 # take in some code, convert into a form python understands, and executes it
-def process_code(code):
+def execute_code(code):
     print("executing code")
     exec(code) # TODO: figure out how to collect errors and print them without stopping our program
-    print("check")
+    status = 0
+    
+    return status, string
 
+# take in some code, give a list of lines that are run
+def trace_code(code):
+    #TODO: use the trace function to go through the input code
+    pass
 
 code = """
 def test_function():
