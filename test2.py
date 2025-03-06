@@ -22,6 +22,17 @@ def trace_code(code):
     pass
 
 
+# breakpoints: list of breakpoints set by the user
+# user_Action: one of the debug functions the user sets (continue, step over, step into)
+def choose_next_line(code, trace, breakpoints, user_action):
+    pass
+
+# take in some code, then generates AST, goes through the code and find the runtime error 
+def process_code(code):
+    pass
+
+
+
 code = """
 def test_function():
     x = 10
