@@ -1,0 +1,111 @@
+Node type: <class 'ast.Module'>
+Module(body=[Import(names=[alias(name='networkx', asname='nx')]), Assign(targets=[Name(id='G', ctx=Store())], value=Call(func=Attribute(value=Name(id='nx', ctx=Load()), attr='DiGraph', ctx=Load()), args=[], keywords=[])), Expr(value=Call(func=Attribute(value=Name(id='G', ctx=Load()), attr='add_node', ctx=Load()), args=[Constant(value=1)], keywords=[keyword(arg='label', value=Constant(value='node1'))])), Expr(value=Call(func=Attribute(value=Name(id='G', ctx=Load()), attr='add_node', ctx=Load()), args=[Constant(value=2)], keywords=[keyword(arg='label', value=Constant(value='node2'))])), Expr(value=Call(func=Attribute(value=Name(id='G', ctx=Load()), attr='add_edge', ctx=Load()), args=[Constant(value=1), Constant(value=2)], keywords=[]))], type_ignores=[])
+
+Node type: <class 'ast.Import'>
+Import(names=[alias(name='networkx', asname='nx')])
+
+Node type: <class 'ast.Assign'>
+Assign(targets=[Name(id='G', ctx=Store())], value=Call(func=Attribute(value=Name(id='nx', ctx=Load()), attr='DiGraph', ctx=Load()), args=[], keywords=[]))
+
+Node type: <class 'ast.Expr'>
+Expr(value=Call(func=Attribute(value=Name(id='G', ctx=Load()), attr='add_node', ctx=Load()), args=[Constant(value=1)], keywords=[keyword(arg='label', value=Constant(value='node1'))]))
+
+Node type: <class 'ast.Expr'>
+Expr(value=Call(func=Attribute(value=Name(id='G', ctx=Load()), attr='add_node', ctx=Load()), args=[Constant(value=2)], keywords=[keyword(arg='label', value=Constant(value='node2'))]))
+
+Node type: <class 'ast.Expr'>
+Expr(value=Call(func=Attribute(value=Name(id='G', ctx=Load()), attr='add_edge', ctx=Load()), args=[Constant(value=1), Constant(value=2)], keywords=[]))
+
+Node type: <class 'ast.alias'>
+alias(name='networkx', asname='nx')
+
+Node type: <class 'ast.Name'>
+Name(id='G', ctx=Store())
+
+Node type: <class 'ast.Call'>
+Call(func=Attribute(value=Name(id='nx', ctx=Load()), attr='DiGraph', ctx=Load()), args=[], keywords=[])
+
+Node type: <class 'ast.Call'>
+Call(func=Attribute(value=Name(id='G', ctx=Load()), attr='add_node', ctx=Load()), args=[Constant(value=1)], keywords=[keyword(arg='label', value=Constant(value='node1'))])
+
+Node type: <class 'ast.Call'>
+Call(func=Attribute(value=Name(id='G', ctx=Load()), attr='add_node', ctx=Load()), args=[Constant(value=2)], keywords=[keyword(arg='label', value=Constant(value='node2'))])
+
+Node type: <class 'ast.Call'>
+Call(func=Attribute(value=Name(id='G', ctx=Load()), attr='add_edge', ctx=Load()), args=[Constant(value=1), Constant(value=2)], keywords=[])
+
+Node type: <class 'ast.Store'>
+Store()
+
+Node type: <class 'ast.Attribute'>
+Attribute(value=Name(id='nx', ctx=Load()), attr='DiGraph', ctx=Load())
+
+Node type: <class 'ast.Attribute'>
+Attribute(value=Name(id='G', ctx=Load()), attr='add_node', ctx=Load())
+
+Node type: <class 'ast.Constant'>
+Constant(value=1)
+
+Node type: <class 'ast.keyword'>
+keyword(arg='label', value=Constant(value='node1'))
+
+Node type: <class 'ast.Attribute'>
+Attribute(value=Name(id='G', ctx=Load()), attr='add_node', ctx=Load())
+
+Node type: <class 'ast.Constant'>
+Constant(value=2)
+
+Node type: <class 'ast.keyword'>
+keyword(arg='label', value=Constant(value='node2'))
+
+Node type: <class 'ast.Attribute'>
+Attribute(value=Name(id='G', ctx=Load()), attr='add_edge', ctx=Load())
+
+Node type: <class 'ast.Constant'>
+Constant(value=1)
+
+Node type: <class 'ast.Constant'>
+Constant(value=2)
+
+Node type: <class 'ast.Name'>
+Name(id='nx', ctx=Load())
+
+Node type: <class 'ast.Load'>
+Load()
+
+Node type: <class 'ast.Name'>
+Name(id='G', ctx=Load())
+
+Node type: <class 'ast.Load'>
+Load()
+
+Node type: <class 'ast.Constant'>
+Constant(value='node1')
+
+Node type: <class 'ast.Name'>
+Name(id='G', ctx=Load())
+
+Node type: <class 'ast.Load'>
+Load()
+
+Node type: <class 'ast.Constant'>
+Constant(value='node2')
+
+Node type: <class 'ast.Name'>
+Name(id='G', ctx=Load())
+
+Node type: <class 'ast.Load'>
+Load()
+
+Node type: <class 'ast.Load'>
+Load()
+
+Node type: <class 'ast.Load'>
+Load()
+
+Node type: <class 'ast.Load'>
+Load()
+
+Node type: <class 'ast.Load'>
+Load()
+
