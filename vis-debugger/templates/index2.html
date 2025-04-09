@@ -7,12 +7,34 @@
     <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/editor/editor.main.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}"> <!-- Changed the path to the CSS file -->
 </head>
+<div id="debug-menu" class="debug-menu" style="display: none;">
+    <div class="debug-menu-content">
+        <div class="debug-menu-header">
+            <h3>Debug Controls</h3>
+        </div>
+        <div class="debug-actions">
+            <button id="close-debug-btn" class="close-debug-btn">×</button>
+            <button id="debug-step-btn">Step</button>
+            <button id="debug-step-over-btn">Step Over</button>
+            <button id="debug-step-into-btn">Step Into</button>
+            <button id="debug-continue-btn">Continue</button>
+            <button id="debug-stop-btn">Stop</button>
+        </div>
+        <div class="debug-variables">
+            <h4>Variables</h4>
+            <div id="variable-list" class="variable-list">
+                <p>Variables will appear here during debugging</p>
+            </div>
+        </div>
+    </div>
+</div>
 <body>
     <div class="app-container">
         <header class="app-header">
             <h1>Python Code Editor</h1>
             <div class="header-actions">
                 <button id="run-code-btn">Run Code</button>
+                <button id="debug-btn">Debug</button>
             </div>
         </header>
         <script src="{{ url_for('static', filename='app.js') }}"></script>

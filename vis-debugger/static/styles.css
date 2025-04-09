@@ -153,4 +153,72 @@
       border-right: none;
       border-bottom: 1px solid var(--secondary-color);
     }
+    /* Debug Menu Styles */
+.debug-menu {
+  position: fixed;
+  top: 60px;
+  right: 0;
+  width: 300px;
+  background-color: var(--background-light);
+  border-left: 1px solid var(--primary-color);
+  height: calc(100vh - 60px);
+  z-index: 1000;
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s ease;
+  overflow-y: auto;
+}
+
+.debug-menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid var(--primary-color);
+}
+
+.close-debug-btn {
+  background: none;
+  border: none;
+  color: var(--text-light);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.close-debug-btn:hover {
+  color: var(--accent-color);
+  background: none;
+}
+
+.debug-menu-content {
+  padding: 1rem;
+}
+
+.debug-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.debug-actions button {
+  flex: 1;
+  min-width: 80px;
+}
+
+.debug-variables {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  padding: 1rem;
+}
+
+.debug-variables h4 {
+  margin-bottom: 0.5rem;
+  color: var(--accent-color);
+}
+
+.variable-list {
+  font-family: monospace;
+  font-size: 0.9rem;
+}
   }

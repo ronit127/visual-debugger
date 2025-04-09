@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
     });
     
+    // when we click the run button, we want to run the code (to process the output)
     runButton.addEventListener('click', function() {
         const code = editor.getValue();
         processCode(code);
@@ -76,9 +77,55 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // EXTENSION POINT 3:
+    const debugBtn = document.getElementById('debug-btn');
+    const debugMenu = document.getElementById('debug-menu');
+    const closeDebugBtn = document.getElementById('close-debug-btn');
+    const debugStepBtn = document.getElementById('debug-step-btn');
+    const debugStepOverBtn = document.getElementById('debug-step-over-btn');
+    const debugStepIntoBtn = document.getElementById('debug-step-into-btn');
+    const debugContinueBtn = document.getElementById('debug-continue-btn');
+    const debugStopBtn = document.getElementById('debug-stop-btn');
+
+    // Toggle debug menu
+    debugBtn.addEventListener('click', function() {
+        debugMenu.style.display = 'block';
+    });
+
+    closeDebugBtn.addEventListener('click', function() {
+        debugMenu.style.display = 'none';
+    });
+
+    // Placeholder functionality for debug buttons
+    debugStepBtn.addEventListener('click', function() {
+        outputResults.style.display = 'block';
+        outputResults.innerHTML += '<p>Debug: Step executed</p>';
+    });
+
+    debugStepOverBtn.addEventListener('click', function() {
+        outputResults.style.display = 'block';
+        outputResults.innerHTML += '<p>Debug: Step Over executed</p>';
+    });
+
+    debugStepIntoBtn.addEventListener('click', function() {
+        outputResults.style.display = 'block';
+        outputResults.innerHTML += '<p>Debug: Step Into executed</p>';
+    });
+
+    debugContinueBtn.addEventListener('click', function() {
+        outputResults.style.display = 'block';
+        outputResults.innerHTML += '<p>Debug: Continue execution</p>';
+    });
+
+    debugStopBtn.addEventListener('click', function() {
+        outputResults.style.display = 'block';
+        outputResults.innerHTML += '<p>Debug: Execution stopped</p>';
+    });
+});
+
+
+ // EXTENSION POINT 3:
     // Functions for visualization can be added here
     // function createVisualization(data) {
     //     // D3.js visualization code would go here
     // }
-});
+        // Debug functionality
