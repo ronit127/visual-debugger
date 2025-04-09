@@ -3,6 +3,7 @@ from flask_cors import CORS
 import sys
 from io import StringIO
 import contextlib
+import ast 
 
 app = Flask(__name__)
 CORS(app) 
@@ -52,11 +53,21 @@ def run_code():
 
 
 # Add code parsing functions here
-# def parse_variables(code):
-#     """
-#     Parse variables from code.
-#     """
-#     # Implementation here
+def parse_variables(code):
+    #"""
+    #Parse variables from code.
+    #"""
+    # Implementation here
+
+    tree = ast.parse(code)
+    variables = set()
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name):
+            if isinstance(node.ctx, ast.Load) or isinstance(node.ctx, ast.Store): 
+               variables.add(node.id)
+
+    return variables 
 
 
 if __name__ == '__main__':
