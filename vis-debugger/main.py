@@ -43,6 +43,8 @@ def choose_next_line(breakpoints, partial_trace):
         action = breakpoints[curr_line]
         if action == "continue":
             return None
+        elif action == "step":
+            return curr_line+1
         elif action == "step into":
             return next_line_in_function(partial_trace, curr_line)
         elif action == "step over":
@@ -66,7 +68,6 @@ def next_line_after_function(trace_list,cl):
     if len(trace_list)==0:
         return None
     i=trace_list.index(cl)
-    if i+1<len(trace_list):
-        return trace_list[i + 1]
+    return trace_list[i] + 1
 
 
