@@ -1,4 +1,6 @@
 from flask import Flask, render_template, request, jsonify
+import ast
+import networkx as nx
 
 app = Flask(__name__)
 
@@ -69,5 +71,40 @@ def next_line_after_function(trace_list,cl):
         return None
     i=trace_list.index(cl)
     return trace_list[i] + 1
+
+
+def parseGraphs(code):
+    #parse graphs with AST
+    #identify the variables that contain the data structure
+    #isolate functions like add_node and delete_node
+    #once detected, call sister functions to change the visualisation
+
+    tree = ast.parse(code)
+    graph_variables = set()
+
+    #check for nx.Graph() being called
+    for node in ast.walk(tree):
+        #if assignment
+        if isinstance(node, ast.Assign):
+            #node.targets=variables
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    #right side = function call and has an attribute = Graph()
+                    if isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Attribute):
+                        if node.value.func.attr == "Graph" and isinstance(node.value.func.value, ast.Name):
+                            graph_variables.add(target.id)
+
+        #check if it is a function call
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Attribute):
+                #name of the function called
+                func_name = node.func.attr
+                graph_functions = ['add_node', 'add_nodes_from', 'add_edge', 'add_edges_from', 'remove_node', 'remove_nodes_from', 'remove_edge', 'remove_edges_from']
+                if func_name in graph_functions:
+                    if isinstance(node.func.value, ast.Name):
+                        
+                        #variable: node.func.value.id,
+                        #action: func_name,
+                        #arguments: [ast.dump(arg) for arg in node.args]
 
 
