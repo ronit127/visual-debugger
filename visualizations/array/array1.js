@@ -99,9 +99,8 @@ d3.select("#addButton").on("click", () => {
   const input = document.getElementById("newElement");
   const newValue = input.value.trim();
   if (newValue !== "") {
-    data.push(newValue);
+    window.visualArray.addElement(newValue);
     input.value = "";
-    updateVisualization();
   }
 });
 
@@ -109,10 +108,9 @@ d3.select("#addButton").on("click", () => {
 d3.select("#deleteButton").on("click", () => {
   const idxInput = document.getElementById("delIndex");
   const idx = parseInt(idxInput.value, 10);
-  if (!isNaN(idx) && idx >= 0 && idx < data.length) {
-    data.splice(idx, 1);
+  if (!isNaN(idx)) {
+    window.visualArray.deleteElement(idx);
     idxInput.value = "";
-    updateVisualization();
   } else {
     alert("Please enter a valid index between 0 and " + (data.length - 1));
   }
