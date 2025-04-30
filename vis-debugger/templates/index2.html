@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Basic Python Editor</title>
     <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/editor/editor.main.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}"> <!-- Changed the path to the CSS file -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <!-- Added missing CSS file for graph visualizations -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='visualizations/array/array1.css') }}">
 </head>
 <div id="debug-menu" class="debug-menu" style="display: none;">
     <div class="debug-menu-content">
@@ -37,7 +39,6 @@
                 <button id="debug-btn">Debug</button>
             </div>
         </header>
-        <script src="{{ url_for('static', filename='app.js') }}"></script>
         <main class="main-content">
             <section class="editor-section">
                 <!-- Monaco editor will be initialized here -->
@@ -52,6 +53,20 @@
                     <div id="output-results" class="output-results" style="display: none;"></div>
                 </div>
             </section>
+            
+            <!-- Added missing Graph Visualization section -->
+            <section class="visualizer-section">
+                <h1>Dynamic Array Visualization with D3</h1>
+                <svg id="arraySVG" width="600" height="200"></svg>
+                <div id="controls">
+                <!-- Add element -->
+                <input type="text" id="newElement" placeholder="Enter element value" />
+                <button id="addButton">Add Element</button>
+                <!-- Delete element by index -->
+                <input type="number" id="delIndex" placeholder="Index to delete" min="0" style="margin-left:20px;"/>
+                <button id="deleteButton">Delete Element</button>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -61,7 +76,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/editor/editor.main.nls.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/editor/editor.main.min.js"></script>
     
-    <!-- Custom Scripts -->
-    <script src="app.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+   
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script src="{{ url_for('static', filename='visualizations/array/array1.js') }}"></script>
+    
 </body>
 </html>

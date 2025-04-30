@@ -1,0 +1,63 @@
+/* Base styling */
+body {
+  font-family: sans-serif;
+  margin: 0;
+  padding: 20px;
+  background-color: #f5f5f5;
+  text-align: center;
+}
+
+h1 {
+  margin-bottom: 20px;
+}
+
+/* SVG container styling */
+svg {
+  display: block;
+  margin: 0 auto;
+  background-color: #fff;
+  border: 1px solid #ddd;
+}
+
+/* Array cell styling */
+.cell {
+  fill: steelblue;
+  stroke: #333;
+  stroke-width: 2px;
+}
+
+.cell-text {
+  fill: white;
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.index-text {
+  fill: #333;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+/* Delete button styling inside each cell */
+.delete-btn {
+  fill: red;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* Controls styling */
+#controls {
+  margin-top: 20px;
+}
+
+button {
+  padding: 10px 20px;
+  font-size: 16px;
+  margin: 0 10px;
+  cursor: pointer;
+}
+
+input[type="text"] {
+  padding: 5px;
+  font-size: 16px;
+}
