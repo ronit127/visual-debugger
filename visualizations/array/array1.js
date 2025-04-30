@@ -68,6 +68,32 @@ function updateVisualization() {
     .style("opacity", 1);
 }
 
+// Exposed API for external control
+window.visualArray = {
+  addElement: function(val) {
+    if (typeof val !== 'undefined') {
+      data.push(val);
+      updateVisualization();
+    }
+  },
+  deleteElement: function(idx) {
+    if (Number.isInteger(idx) && idx >= 0 && idx < data.length) {
+      data.splice(idx, 1);
+      updateVisualization();
+    }
+  },
+  reset: function(newArr) {
+    if (Array.isArray(newArr)) {
+      data.splice(0, data.length, ...newArr);
+      updateVisualization();
+    }
+  },
+  getData: function() {
+    return data.slice();
+  }
+};
+
+// User inputs...
 // Add Element handler
 d3.select("#addButton").on("click", () => {
   const input = document.getElementById("newElement");
