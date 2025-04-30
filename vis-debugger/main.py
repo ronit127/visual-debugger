@@ -102,9 +102,101 @@ def parseGraphs(code):
                 graph_functions = ['add_node', 'add_nodes_from', 'add_edge', 'add_edges_from', 'remove_node', 'remove_nodes_from', 'remove_edge', 'remove_edges_from']
                 if func_name in graph_functions:
                     if isinstance(node.func.value, ast.Name):
+                        graph = node.func.value.id
+
+                        if func_name == 'add_node':
+                            try:
+                                node = ast.literal_eval(node.args[0])
+                                addNode(graph, node)
+                            except:
+                                pass
+
+                        elif func_name == 'add_nodes_from':
+                            list_nodes = node.args[0]
+                            if isinstance(list_nodes, ast.List):
+                                for elt in list_nodes.elts:
+                                    try:
+                                        node_val = ast.literal_eval(elt)
+                                        addNode(graph, node_val)
+                                    except:
+                                        pass
+
+                        elif func_name == 'add_edge':
+                            try:
+                                node1 = ast.literal_eval(node.args[0])
+                                node2 = ast.literal_eval(node.args[1])
+                                addEdge(graph, node1, node2)
+                            except:
+                                pass
+
+                        elif func_name == 'add_edges_from':
+                            edge_list = node.args[0]
+                            if isinstance(edge_list, ast.List):
+                                for edge_ast in edge_list.elts:
+                                    if isinstance(edge_ast, ast.Tuple) and len(edge_ast.elts) == 2:
+                                        try:
+                                            node1 = ast.literal_eval(edge_ast.elts[0])
+                                            node2 = ast.literal_eval(edge_ast.elts[1])
+                                            addEdge(graph, node1, node2)
+                                        except:
+                                            pass
+
+                        elif func_name == 'remove_edge':
+                            try:
+                                node1 = ast.literal_eval(node.args[0])
+                                node2 = ast.literal_eval(node.args[1])
+                                removeEdge(graph, node1, node2)
+                            except:
+                                pass
+
+                        elif func_name == 'remove_edges_from':
+                            edge_list_ast = node.args[0]
+                            if isinstance(edge_list_ast, ast.List):
+                                for edge_ast in edge_list_ast.elts:
+                                    if isinstance(edge_ast, ast.Tuple) and len(edge_ast.elts) == 2:
+                                        try:
+                                            node1 = ast.literal_eval(edge_ast.elts[0])
+                                            node2 = ast.literal_eval(edge_ast.elts[1])
+                                            removeEdge(graph, node1, node2)
+                                        except:
+                                            pass
+
+                        elif func_name == 'remove_node':
+                            try:
+                                node_remove = ast.literal_eval(node.args[0])
+                                removeNode(graph, node_remove)
+                            except:
+                                pass
+
+                        elif func_name == 'remove_nodes_from':
+                            list_node_remove = node.args[0]
+                            if isinstance(list_node_remove, ast.List):
+                                for elt in list_node_remove.elts:
+                                    try:
+                                        node_val = ast.literal_eval(elt)
+                                        removeNode(graph, node_val)
+                                    except:
+                                        pass
+
+
+
+def addNode(graph, node):
+    #call add node frontend
+    pass
+                            
+                            
+def addEdge(graph, node1, node2):
+    #call add edge frontend 
+    pass
+                      
+
+def removeEdge(graph, node1st, node2nd):
+    #call remove edge frontend
+    pass
+
+
+def removeNode(graph, node_r): 
+    #call remove node frontend
+    pass
+
                         
-                        #variable: node.func.value.id,
-                        #action: func_name,
-                        #arguments: [ast.dump(arg) for arg in node.args]
-
-
