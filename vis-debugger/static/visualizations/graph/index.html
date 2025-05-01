@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Interactive Graph Builder</title>
+  <link rel="stylesheet" href="graph.css" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='visualizations/graph/graph.css') }}">
+
+</head>
+<body>
+  <h1>Interactive Graph Builder with D3</h1>
+  <svg id="graphSVG" width="800" height="600"></svg>
+  <div id="controls">
+    <!-- Add Vertex -->
+    <input type="text" id="vertexLabel" placeholder="Vertex label" />
+    <button id="addVertex">Add Vertex</button>
+    <br/><br/>
+    <!-- Add Edge -->
+    <select id="edgeSrc"><option value="" disabled selected>Source</option></select>
+    <select id="edgeTgt"><option value="" disabled selected>Target</option></select>
+    <button id="addEdge">Add Edge</button>
+  </div>
+
+  <!-- D3 -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="graph.js"></script>
+</body>
+</html>
