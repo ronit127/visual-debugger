@@ -4,6 +4,9 @@ import networkx as nx
 
 app = Flask(__name__)
 
+# Global variable to store graph operations for the current session
+graph_operations = []
+
 @app.route('/')
 def index():
     return render_template('index2.html')
@@ -11,15 +14,25 @@ def index():
 @app.route('/api/run', methods=['POST'])
 def run_code():
     try:
+        global graph_operations
+        # Reset graph operations for a new run
+        graph_operations = []
+        
         data = request.get_json()
         code = data.get('code', '')
 
-        
         if code.strip() == "":
             return jsonify({'status': 'error', 'error': 'No code provided'})
 
+        # Parse the code for graph operations
+        parseGraphs(code)
+        
         output = f"Processed: {code}"
-        return jsonify({'status': 'success', 'output': output})
+        return jsonify({
+            'status': 'success', 
+            'output': output,
+            'graph_operations': graph_operations  # Include graph operations in the response
+        })
 
     except Exception as e:
         return jsonify({'status': 'error', 'error': str(e)})
@@ -93,6 +106,8 @@ def parseGraphs(code):
                     if isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Attribute):
                         if node.value.func.attr == "Graph" and isinstance(node.value.func.value, ast.Name):
                             graph_variables.add(target.id)
+                            # Log graph creation
+                            addGraphCreation(target.id)
 
         #check if it is a function call
         if isinstance(node, ast.Call):
@@ -106,8 +121,8 @@ def parseGraphs(code):
 
                         if func_name == 'add_node':
                             try:
-                                node = ast.literal_eval(node.args[0])
-                                addNode(graph, node)
+                                node_val = ast.literal_eval(node.args[0])
+                                addNode(graph, node_val)
                             except:
                                 pass
 
@@ -178,25 +193,25 @@ def parseGraphs(code):
                                     except:
                                         pass
 
+def addGraphCreation(graph_name):
+    graph_operations.append(f"Graph created: '{graph_name}'")
 
 
 def addNode(graph, node):
-    #call add node frontend
-    pass
+    # Log the node addition operation
+    graph_operations.append(f"Graph '{graph}': Node added with value: {node}")
                             
                             
 def addEdge(graph, node1, node2):
-    #call add edge frontend 
-    pass
+    # Log the edge addition operation
+    graph_operations.append(f"Graph '{graph}': Edge added between {node1} and {node2}")
                       
 
 def removeEdge(graph, node1st, node2nd):
-    #call remove edge frontend
-    pass
+    # Log the edge removal operation
+    graph_operations.append(f"Graph '{graph}': Edge removed between {node1st} and {node2nd}")
 
 
 def removeNode(graph, node_r): 
-    #call remove node frontend
-    pass
-
-                        
+    # Log the node removal operation
+    graph_operations.append(f"Graph '{graph}': Node removed with value: {node_r}")

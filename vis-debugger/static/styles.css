@@ -221,4 +221,47 @@
   font-family: monospace;
   font-size: 0.9rem;
 }
+
+
+.graph-operations {
+  background-color: #f0f8ff; /* Light blue background */
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 10px;
+  margin-top: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.graph-operation {
+  padding: 5px 0;
+  border-bottom: 1px solid #eee;
+  font-family: monospace;
+}
+
+.graph-operation:last-child {
+  border-bottom: none;
+}
+
+/* Different colors for different operations */
+.graph-operation:contains('Node added') {
+  color: #4CAF50; /* Green */
+}
+
+.graph-operation:contains('Edge added') {
+  color: #2196F3; /* Blue */
+}
+
+.graph-operation:contains('Node removed') {
+  color: #F44336; /* Red */
+}
+
+.graph-operation:contains('Edge removed') {
+  color: #FF9800; /* Orange */
+}
+
+.graph-operation:contains('Graph created') {
+  color: #9C27B0; /* Purple */
+  font-weight: bold;
+}
   }

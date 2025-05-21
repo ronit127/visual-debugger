@@ -57,12 +57,10 @@
             <!-- Added missing Graph Visualization section -->
             <section class="visualizer-section">
                 <h1>Dynamic Array Visualization with D3</h1>
-                <svg id="arraySVG" width="600" height="200"></svg>
+                <svg id="arraySVG" width="400" height="200"></svg>
                 <div id="controls">
-                <!-- Add element -->
                 <input type="text" id="newElement" placeholder="Enter element value" />
                 <button id="addButton">Add Element</button>
-                <!-- Delete element by index -->
                 <input type="number" id="delIndex" placeholder="Index to delete" min="0" style="margin-left:20px;"/>
                 <button id="deleteButton">Delete Element</button>
                 </div>
@@ -79,7 +77,6 @@
     <script src="https://d3js.org/d3.v7.min.js"></script>
    
     <script src="{{ url_for('static', filename='app.js') }}"></script>
-    <script src="{{ url_for('static', filename='visualizations/array/array1.js') }}"></script>
-    
+  
 </body>
 </html>
