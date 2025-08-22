@@ -1,4 +1,27 @@
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+vis-debugger/env/
+
+# Data/Database
+data_dir/
+
+# Logs
+*.log
+
+# OS/Editor
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Node
+node_modules/
