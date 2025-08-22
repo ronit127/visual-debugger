@@ -82,6 +82,11 @@
     border-right: 1px solid var(--secondary-color);
   }
   
+  .editor-section, .monaco-editor-container {
+    text-align: left !important;
+    display: block;
+}
+
   .monaco-editor-container {
     height: 100%;
     width: 100%;

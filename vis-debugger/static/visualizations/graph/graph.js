@@ -1,3 +1,4 @@
+document.addEventListener('DOMContentLoaded', function() {
 // Graph data
 let nodes = [];
 let links = [];
@@ -141,5 +142,22 @@ d3.select("#addEdge").on("click", () => {
   }
 });
 
+// Expose a function to set the graph from outside
+window.visualGraph = {
+  setGraph: function(newNodes, newLinks) {
+    nodes = (newNodes || []).map(n => ({...n}));
+    links = (newLinks || []).map(l => ({...l}));
+    // Update dropdowns for edges
+    d3.select('#edgeSrc').selectAll('option:not([disabled])').remove();
+    d3.select('#edgeTgt').selectAll('option:not([disabled])').remove();
+    nodes.forEach(n => {
+      d3.select('#edgeSrc').append('option').attr('value', n.id).text(n.label || n.id);
+      d3.select('#edgeTgt').append('option').attr('value', n.id).text(n.label || n.id);
+    });
+    restart();
+  }
+};
+
 // initial draw
 restart();
+});
