@@ -3,22 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Basic Python Editor</title>
+    <title>Python Code Editor & Visualizer</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/editor/editor.main.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <!-- Added missing CSS file for graph visualizations -->
     <link rel="stylesheet" href="{{ url_for('static', filename='visualizations/graph/graph.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='visualizations/array/array1.css') }}">
 </head>
 <body>
+    <!-- Debug Menu -->
     <div id="debug-menu" class="debug-menu" style="display: none;">
         <div class="debug-menu-content">
             <div class="debug-menu-header">
                 <h3>Debug Controls</h3>
+                <button id="close-debug-btn" class="close-debug-btn">×</button>
             </div>
             <div class="debug-actions">
-                <button id="close-debug-btn" class="close-debug-btn">×</button>
                 <button id="debug-step-btn">Step</button>
                 <button id="debug-step-over-btn">Step Over</button>
                 <button id="debug-step-into-btn">Step Into</button>
@@ -33,20 +36,24 @@
             </div>
         </div>
     </div>
+
+    <!-- Main App Container -->
     <div class="app-container">
         <header class="app-header">
-            <h1>Python Code Editor</h1>
+            <h1>Python Code Editor & Visualizer</h1>
             <div class="header-actions">
                 <button id="run-code-btn">Run Code</button>
                 <button id="debug-btn">Debug</button>
             </div>
         </header>
+        
         <main class="main-content">
+            <!-- Code Editor Section -->
             <section class="editor-section">
-                <!-- Monaco editor will be initialized here -->
                 <div id="monaco-editor" class="monaco-editor-container"></div>
             </section>
             
+            <!-- Output Section -->
             <section class="output-section">
                 <div id="output-container" class="output-container">
                     <div id="output-placeholder" class="placeholder-message">
@@ -56,35 +63,25 @@
                 </div>
             </section>
             
-            <!-- Added missing Graph Visualization section -->
+            <!-- Visualization Section -->
             <section class="visualizer-section">
-                <h1>Graph Visualization</h1>
-                <svg id="graphSVG" width="800" height="600"></svg>
-                <div id="controls">
-                    <input type="text" id="vertexLabel" placeholder="Vertex label" />
-                    <button id="addVertex">Add Vertex</button>
-                    <br/><br/>
-                    <select id="edgeSrc"><option value="" disabled selected>Source</option></select>
-                    <select id="edgeTgt"><option value="" disabled selected>Target</option></select>
-                    <button id="addEdge">Add Edge</button>
-                </div>
+                <h1>Interactive Graph Visualization</h1>
+                <svg id="graphSVG" width="600" height="400"></svg>
             </section>
         </main>
     </div>
 
-    
+    <!-- Scripts -->
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    
     <script src="{{ url_for('static', filename='visualizations/graph/graph.js') }}"></script>
     <script src="{{ url_for('static', filename='visualizations/array/array1.js') }}"></script>
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 
-
-    <!-- Monaco Editor Script -->
+    <!-- Monaco Editor Scripts -->
     <script>var require = { paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' } };</script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/loader.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/editor/editor.main.nls.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/editor/editor.main.min.js"></script>
-    
 </body>
+</html>
 </html>

@@ -47,8 +47,11 @@ def run_code():
         # Parse the code for graph operations
         parseGraphs(code)
 
-        output = f"Processed: {code}"
+        #output = f"Processed: {code}"
         # Sample graph data for visualization
+        exec_result = execute_code(code)
+        print(exec_result['status'])
+
         graph_data = {
             "nodes": [
                 {"id": 1, "label": "1"},
@@ -61,8 +64,8 @@ def run_code():
             ]
         }
         return jsonify({
-            'status': 'success',
-            'output': output,
+            'status': exec_result['status'],
+            'output': exec_result['output'],
             'graph_operations': graph_operations,  # Include graph operations in the response
             'graph': graph_data
         })
@@ -70,6 +73,34 @@ def run_code():
     except Exception as e:
         return jsonify({'status': 'error', 'error': str(e)})
 
+
+import io, contextlib
+
+def execute_code(code):
+    """Run code handling and returning output and errors, if any"""
+    print("Executing code...")
+    output = ""
+    status = "success"
+
+    f = io.StringIO()
+    try:
+        compiled_code = compile(code, "<string>", "exec")
+        with contextlib.redirect_stdout(f):
+            exec(compiled_code)
+        output = f.getvalue()
+    except IndentationError as e:
+        status = str(e)
+    except SyntaxError as e:
+        status = str(e)
+    except NameError as e:
+        status = str(e)
+    except Exception as e:
+        status = str(e)
+
+    return {
+        "status": status,
+        "output": output
+    }
 
 def choose_next_line(breakpoints, partial_trace):
     """

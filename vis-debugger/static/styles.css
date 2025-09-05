@@ -1,8 +1,7 @@
-/* Basic styles.css */
 :root {
     --primary-color: #4a4a9e;
     --secondary-color: #2a2a72;
-    --accent-color: #ffcc00;
+    --accent-color: #ffffff;
     --text-light: #ffffff;
     --text-dark: #333333;
     --background-dark: #1e1e3f;
@@ -17,7 +16,6 @@
   }
   
   body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: var(--background-dark);
     color: var(--text-light);
     height: 100vh;
@@ -73,15 +71,15 @@
     flex: 1;
     overflow: hidden;
   }
-  
+
   .editor-section {
-    flex: 1;
+    flex: 2;
     height: calc(100vh - 60px);
     position: relative;
     overflow: hidden;
     border-right: 1px solid var(--secondary-color);
   }
-  
+
   .editor-section, .monaco-editor-container {
     text-align: left !important;
     display: block;
@@ -99,6 +97,23 @@
     padding: 1rem;
     background-color: var(--background-dark);
     overflow: auto;
+    border-right: 1px solid var(--secondary-color);
+  }
+  
+  .visualizer-section {
+    flex: 1;
+    background-color: #f5f5f5;
+    padding: 1rem;
+    overflow: auto;
+    min-width: 400px;
+    max-width: 500px;
+  }
+
+  .visualizer-section h1 {
+    color: var(--text-dark);
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+    font-weight: 600;
   }
   
   .output-container {
@@ -130,143 +145,164 @@
     border-radius: 4px;
     overflow: auto;
     margin-top: 0.5rem;
-    font-family: monospace;
+    font-family: 'Inter', sans-serif;
   }
   
   .output-results .error {
     color: var(--error-color);
   }
   
-  /* EXTENSION POINT 1:
-     Add custom visualization styles here
-  */
-  
-  /* EXTENSION POINT 2:
-     Add responsive styles here
-  */
-  @media (max-width: 992px) {
-    .main-content {
-      flex-direction: column;
-    }
-    
-    .editor-section, .output-section {
-      min-width: 100%;
-      height: 50vh;
-    }
-    
-    .editor-section {
-      border-right: none;
-      border-bottom: 1px solid var(--secondary-color);
-    }
-    /* Debug Menu Styles */
-.debug-menu {
-  position: fixed;
-  top: 60px;
-  right: 0;
-  width: 300px;
-  background-color: var(--background-light);
-  border-left: 1px solid var(--primary-color);
-  height: calc(100vh - 60px);
-  z-index: 1000;
-  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.3);
-  transition: transform 0.3s ease;
-  overflow-y: auto;
-}
+  /* Debug Menu Styles */
+  .debug-menu {
+    position: fixed;
+    top: 60px;
+    right: 0;
+    width: 300px;
+    background-color: var(--background-light);
+    border-left: 1px solid var(--primary-color);
+    height: calc(100vh - 60px);
+    z-index: 1000;
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s ease;
+    overflow-y: auto;
+  }
 
-.debug-menu-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  border-bottom: 1px solid var(--primary-color);
-}
+  .debug-menu-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid var(--primary-color);
+  }
 
-.close-debug-btn {
-  background: none;
-  border: none;
-  color: var(--text-light);
-  font-size: 1.5rem;
-  cursor: pointer;
-  padding: 0;
-}
+  .close-debug-btn {
+    background: none;
+    border: none;
+    color: var(--text-light);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+  }
 
-.close-debug-btn:hover {
-  color: var(--accent-color);
-  background: none;
-}
+  .close-debug-btn:hover {
+    color: var(--accent-color);
+    background: none;
+  }
 
-.debug-menu-content {
-  padding: 1rem;
-}
+  .debug-menu-content {
+    padding: 1rem;
+  }
 
-.debug-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
+  .debug-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
 
-.debug-actions button {
-  flex: 1;
-  min-width: 80px;
-}
+  .debug-actions button {
+    flex: 1;
+    min-width: 80px;
+  }
 
-.debug-variables {
-  background-color: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-  padding: 1rem;
-}
+  .debug-variables {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    padding: 1rem;
+  }
 
-.debug-variables h4 {
-  margin-bottom: 0.5rem;
-  color: var(--accent-color);
-}
+  .debug-variables h4 {
+    margin-bottom: 0.5rem;
+    color: var(--accent-color);
+  }
 
-.variable-list {
-  font-family: monospace;
-  font-size: 0.9rem;
-}
+  .variable-list {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+  }
 
+  .code-output {
+    background-color: #e6ecfa00;
+    border: 1px solid #b3b3cc;
+    border-radius: 8px;
+    padding: 14px 14px 8px 14px;
+    margin-top: 16px;
+    max-height: 400px;
+    overflow-y: auto;
+    box-shadow: 0 2px 8px rgba(74, 74, 158, 0.08);
+  }
 
-.graph-operations {
-  background-color: #f0f8ff; /* Light blue background */
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  padding: 10px;
-  margin-top: 10px;
-  max-height: 300px;
-  overflow-y: auto;
-}
+  .code-output pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin: 0;
+    color: #23234a;
+  }
 
-.graph-operation {
-  padding: 5px 0;
-  border-bottom: 1px solid #eee;
-  font-family: monospace;
-}
+  .graph-operations {
+    background-color: #e6ecfa00;
+    border: 1px solid #b3b3cc;
+    border-radius: 8px;
+    padding: 14px 14px 8px 14px;
+    margin-top: 16px;
+    max-height: 300px;
+    overflow-y: auto;
+    box-shadow: 0 2px 8px rgba(74, 74, 158, 0.08);
+  }
 
-.graph-operation:last-child {
-  border-bottom: none;
-}
+  .graph-operation {
+    padding: 8px 0;
+    border-bottom: 1px solid #d1d5e7;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.7rem;
+    color: #23234a; /* Dark text for readability */
+    background: var(--primary-color);
+    border-radius: 13px;
+    margin-bottom: 8px;
+  }
 
-/* Different colors for different operations */
-.graph-operation:contains('Node added') {
-  color: #4CAF50; /* Green */
-}
+  .graph-operation:last-child {
+    border-bottom: none;
+  }
 
-.graph-operation:contains('Edge added') {
-  color: #2196F3; /* Blue */
-}
+  /* Different colors for different operations */
+  .graph-operation[data-type="node-added"] {
+    color: #228B22; /* Forest Green */
+    font-weight: 600;
+    background: #eafbe7;
+  }
 
-.graph-operation:contains('Node removed') {
-  color: #F44336; /* Red */
-}
+  .graph-operation[data-type="edge-added"] {
+    color: #1565c0; /* Deep Blue */
+    font-weight: 600;
+    background: #e7f1fb;
+  }
 
-.graph-operation:contains('Edge removed') {
-  color: #FF9800; /* Orange */
-}
+  .graph-operation[data-type="node-removed"] {
+    color: #b71c1c; /* Strong Red */
+    font-weight: 600;
+    background: #fdeaea;
+  }
 
-.graph-operation:contains('Graph created') {
-  color: #9C27B0; /* Purple */
-  font-weight: bold;
-}
+  .graph-operation[data-type="edge-removed"] {
+    color: #e65100; /* Orange */
+    font-weight: 600;
+    background: #fff4e6;
+  }
+
+  .graph-operation[data-type="graph-created"] {
+    color: #6a1b9a; /* Purple */
+    font-weight: bold;
+    background: #f3e6fa;
+    border-left: 4px solid #9C27B0;
+    padding-left: 10px;
+  }
+
+  /* Fallback for text selection if data-type is not set */
+  .graph-operation:not([data-type]) {
+    color: #23234a;
+    background: #f8f9fb;
   }
