@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python Code Editor & Visualizer</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/editor/editor.main.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='visualizations/graph/graph.css') }}">
+</head>
+<body>
+    <!-- Debug Menu -->
+    <div id="debug-menu" class="debug-menu" style="display: none;">
+        <div class="debug-menu-content">
+            <div class="debug-menu-header">
+                <h3>Debug Controls</h3>
+                <button id="close-debug-btn" class="close-debug-btn">×</button>
+            </div>
+            <div class="debug-actions">
+                <button id="debug-step-btn">Step</button>
+                <button id="debug-step-over-btn">Step Over</button>
+                <button id="debug-step-into-btn">Step Into</button>
+                <button id="debug-continue-btn">Continue</button>
+                <button id="debug-stop-btn">Stop</button>
+            </div>
+            <div class="debug-variables">
+                <h4>Variables</h4>
+                <div id="variable-list" class="variable-list">
+                    <p>Variables will appear here during debugging</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div class="app-container">
+        <header class="app-header">
+            <h1>Python Code Editor & Visualizer</h1>
+            <div class="header-actions">
+                <button id="run-code-btn">Run Code</button>
+                <button id="debug-btn">Debug</button>
+            </div>
+        </header>
+        
+        <main class="main-content">
+            <!-- Code Editor Section -->
+            <section class="editor-section">
+                <div id="monaco-editor" class="monaco-editor-container"></div>
+            </section>
+            
+            <!-- Output Section -->
+            <section class="output-section">
+                <div id="output-container" class="output-container">
+                    <div id="output-placeholder" class="placeholder-message">
+                        Run your code to see the output
+                    </div>
+                    <div id="output-results" class="output-results" style="display: none;"></div>
+                </div>
+            </section>
+            
+            <!-- Visualization Section -->
+            <section class="visualizer-section">
+                <h1>Interactive Graph Visualization</h1>
+                <svg id="graphSVG" width="600" height="400"></svg>
+            </section>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="{{ url_for('static', filename='visualizations/graph/graph.js') }}"></script>
+    <script src="{{ url_for('static', filename='visualizations/array/array1.js') }}"></script>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+
+    <!-- Monaco Editor Scripts -->
+    <script>var require = { paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' } };</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/loader.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/editor/editor.main.nls.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/editor/editor.main.min.js"></script>
+</body>
+</html>
+</html>
