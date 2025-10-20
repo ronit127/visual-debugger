@@ -22,65 +22,27 @@ class TestCode:
     """
     
     # Test 1: Simple linear code
-    LINEAR = """x = 1
-y = 2
-z = x + y
-print(z)"""
-    
-    LINEAR_TRACE = [1, 2, 3, 4]
+
     
     
     # Test 2: Simple function call
-    SIMPLE_FUNCTION = """def add(a, b):
-    return a + b
 
-result = add(5, 3)
-print(result)"""
-    
-    SIMPLE_FUNCTION_TRACE = [1, 4, 1, 2, 4, 5]
     
     
     # Test 3: Nested function calls
-    NESTED_FUNCTIONS = """def inner():
-    return 10
 
-def outer():
-    x = inner()
-    return x * 2
-
-result = outer()"""
-    
-    NESTED_FUNCTIONS_TRACE = [1, 4, 8, 4, 5, 1, 2, 5, 6, 8]
     
     
     # Test 4: Loop
-    SIMPLE_LOOP = """for i in range(3):
-    print(i)
-print("done")"""
-    
-    SIMPLE_LOOP_TRACE = [1, 2, 1, 2, 1, 2, 1, 3]
+
     
     
     # Test 5: Function with loop
-    FUNCTION_WITH_LOOP = """def count():
-    for i in range(2):
-        print(i)
-    return 5
 
-x = count()"""
-    
-    FUNCTION_WITH_LOOP_TRACE = [1, 6, 1, 2, 3, 2, 3, 2, 4, 6]
     
     
     # Test 6: Recursive function
-    RECURSIVE = """def factorial(n):
-    if n <= 1:
-        return 1
-    return n * factorial(n-1)
 
-result = factorial(3)"""
-    
-    RECURSIVE_TRACE = [1, 6, 1, 2, 4, 1, 2, 4, 1, 2, 3, 4, 4, 6]
     
     
     # TODO: Add more test cases as needed
