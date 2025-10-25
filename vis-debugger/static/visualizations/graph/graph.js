@@ -7,11 +7,18 @@ document.addEventListener('DOMContentLoaded', function() {
   // SVG & simulation setup
   const svg = d3.select("#graphSVG");
   const width = +svg.attr("width"), height = +svg.attr("height");
-  
+
+  const R = 20;                 // node radius (keep in sync with your circle r)
+  const PAD = 4;                // little padding from edges
+  const jitter = (n=10) => (Math.random() - 0.5) * 2 * n; // CHANGED: small helper for spawn jitter
+
   const simulation = d3.forceSimulation(nodes)
-    .force("link", d3.forceLink(links).id(d => d.id).distance(100))
-    .force("charge", d3.forceManyBody().strength(-300))
-    .force("center", d3.forceCenter(width/2, height/2));
+    .velocityDecay(0.35)        // add damping so things slow down faster
+    .force("link", d3.forceLink(links).id(d => d.id).distance(80)) // shorter springs
+    .force("charge", d3.forceManyBody().strength(-120))            // less repulsion
+    .force("center", d3.forceCenter(width/2, height/2))
+    .force("x", d3.forceX(width / 2).strength(0.05))               // gentle pull to middle
+    .force("y", d3.forceY(height / 2).strength(0.05));             // gentle pull to middle
   
   // Container groups
   const linkG = svg.append("g").attr("class","links");
@@ -71,7 +78,7 @@ document.addEventListener('DOMContentLoaded', function() {
     nodeEnter
       .append("circle")
         .attr("class","node-circle")
-        .attr("r", 20);
+        .attr("r", R); // CHANGED: use R so clamp matches visual radius
   
     // label
     nodeEnter
@@ -108,7 +115,16 @@ document.addEventListener('DOMContentLoaded', function() {
         .attr("x2", d=>d.target.x)
         .attr("y2", d=>d.target.y);
   
+      // CHANGED: clamp node positions inside the SVG before rendering
       nodeG.selectAll("g.node-group")
+        .each(function(d) {
+          const minX = R + PAD, maxX = width - R - PAD;
+          const minY = R + PAD, maxY = height - R - PAD;
+          if (d.x < minX) { d.x = minX; d.vx = 0; }
+          if (d.x > maxX) { d.x = maxX; d.vx = 0; }
+          if (d.y < minY) { d.y = minY; d.vy = 0; }
+          if (d.y > maxY) { d.y = maxY; d.vy = 0; }
+        })
         .attr("transform", d=>`translate(${d.x},${d.y})`);
     });
   }
@@ -161,10 +177,16 @@ document.addEventListener('DOMContentLoaded', function() {
         return this;
       }
       
-      const newNode = { id: nodeId, label: nodeLabel };
-      if (x !== null && y !== null) {
-        newNode.x = x;
-        newNode.y = y;
+      // CHANGED: default spawn near center with slight jitter (not fixed)
+      if (x === null || y === null) {
+        x = width / 2 + jitter(10);
+        y = height / 2 + jitter(10);
+      }
+
+      const newNode = { id: nodeId, label: nodeLabel, x, y };
+
+      // Only fix position if caller explicitly provided x & y
+      if (arguments.length >= 4) { // CHANGED: pin only when x & y were passed
         newNode.fx = x;
         newNode.fy = y;
       }
@@ -364,6 +386,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   };
   
-  // initial draw
-  restart();
-  });
+});
+
+// initial draw
+restart();
