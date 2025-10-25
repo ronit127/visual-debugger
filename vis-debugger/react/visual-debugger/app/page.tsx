@@ -2,13 +2,25 @@
 
 import React, { useState } from "react";
 // use of dnd-kit library for draggable window
-import { DndContext, DragEndEvent } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragMoveEvent } from "@dnd-kit/core";
 import { Draggable } from "./Draggable";
 import { Droppable } from "./Droppable";
 
 export default function App() {
   const [isDropped, setIsDropped] = useState(false);
-  const draggableMarkup = <Draggable>Drag me</Draggable>;
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const draggableMarkup = (
+    <Draggable
+      style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
+    >
+      Drag me
+    </Draggable>
+  );
+
+  const handleDragMove = (event: DragMoveEvent) => {
+    const { delta } = event;
+    setPosition((prev) => ({ x: prev.x + delta.x, y: prev.y + delta.y }));
+  };
 
   const handleDragEnd = (event: DragEndEvent) => {
     if (event.over && event.over.id === "droppable") {
@@ -17,7 +29,7 @@ export default function App() {
   };
 
   return (
-    <DndContext onDragEnd={handleDragEnd}>
+    <DndContext onDragMove={handleDragMove} onDragEnd={handleDragEnd}>
       {!isDropped ? draggableMarkup : null}
       <Droppable>{isDropped ? draggableMarkup : "Drop here"}</Droppable>
     </DndContext>
