@@ -9,7 +9,7 @@ Usage:
 """
 
 from debugger import get_next_line, string_to_lines, create_debugger_session
-
+import os
 
 # ============================================
 # TEST CODE SAMPLES
@@ -20,36 +20,45 @@ class TestCode:
     Container for test code samples.
     Add new test cases by adding class variables.
     """
-    
-    # Test 1: Simple linear code
+    def __init__(self, tc_dir="debugger_test_cases"):
+        """
+        Args:
+            tc_dir: Directory containing test code samples
 
-    
-    
-    # Test 2: Simple function call
+        Test 1: Simple linear code
+        Test 2: Simple function call
+        Test 3: Nested function calls
+        Test 4: Loop
+        Test 5: Function with loop
+        Test 6: Recursive function
+        Test 7: Multiple sequential functions
+        Test 8: Try-except blocks
+        Test 9: List comprehensions
+        Test 10: Class methods
+        """
+        self.tc = []
 
-    
-    
-    # Test 3: Nested function calls
+        # Read test case files and store in list
+        for i in range(1, 11):
+            path = os.path.join(tc_dir, f"tc{i}.py")
+            try:
+                with open(path, "r") as f:
+                    code = f.read()
+                    self.tc.append(code)
+            except FileNotFoundError:
+                print(f"Test case at path {path} not found.")
+            except Exception as e:
+                print(f"Mysterious error found: {e}")
 
+    def __getitem__(self, index):
+        return self.tc[index]
     
+    def __len__(self):
+        return len(self.tc)
     
-    # Test 4: Loop
+    def __str__(self):
+        return self.tc.__str__()
 
-    
-    
-    # Test 5: Function with loop
-
-    
-    
-    # Test 6: Recursive function
-
-    
-    
-    # TODO: Add more test cases as needed
-    # Test 7: Multiple sequential functions
-    # Test 8: Try-except blocks
-    # Test 9: List comprehensions
-    # Test 10: Class methods
 
 
 # ============================================
