@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 // react-rnd library for draggable, resizeable window
 import { Rnd } from "react-rnd";
 // dnd-kit library
@@ -9,24 +9,46 @@ import { Rnd } from "react-rnd";
 // import { Droppable } from "./Droppable";
 
 function DraggableComponent() {
+  const [visible, setVisible] = useState(true);
+  const [isMaximized, setIsMaximized] = useState(false);
   return (
     <Rnd
       default={{
         x: 0,
         y: 0,
-        width: 320,
+        width: 300,
         height: 200,
       }}
+      minHeight="100"
+      minWidth="150"
+      bounds="window"
+      dragHandleClassName="draggable"
+      enableResizing={{
+        bottom: true,
+        bottomLeft: true,
+        bottomRight: true,
+        left: true,
+        right: true,
+        top: true,
+        topLeft: true,
+        topRight: true,
+      }}
     >
-      <div
-        style={{
-          padding: "10px",
-          background: "#f0f0f0",
-          border: "1px solid #ccc",
-          color: "black",
-        }}
-      >
-        I&apos;m a draggable window!
+      <div className="draggable" style={{ display: "flex" }}>
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            height: "100%",
+            boxSizing: "border-box",
+            padding: "20px",
+            background: "#f0f0f0",
+            border: "1px solid #ccc",
+            color: "black",
+          }}
+        >
+          I&apos;m a draggable window!
+        </div>
       </div>
     </Rnd>
   );
