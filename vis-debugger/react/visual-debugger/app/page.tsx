@@ -1,40 +1,66 @@
 "use client";
 
-import React, { useState } from "react";
-// use of dnd-kit library for draggable window
-import { DndContext, DragEndEvent, DragMoveEvent } from "@dnd-kit/core";
-import { Draggable } from "./Draggable";
-import { Droppable } from "./Droppable";
+import React from "react";
+// react-rnd library for draggable, resizeable window
+import { Rnd } from "react-rnd";
+// dnd-kit library
+// import { DndContext, DragEndEvent, DragMoveEvent } from "@dnd-kit/core";
+// import { Draggable } from "./Draggable";
+// import { Droppable } from "./Droppable";
 
-export default function App() {
-  const [isDropped, setIsDropped] = useState(false);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const draggableMarkup = (
-    <Draggable
-      style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
-    >
-      Drag me
-    </Draggable>
-  );
-
-  const handleDragMove = (event: DragMoveEvent) => {
-    const { delta } = event;
-    setPosition((prev) => ({ x: prev.x + delta.x, y: prev.y + delta.y }));
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    if (event.over && event.over.id === "droppable") {
-      setIsDropped(true);
-    }
-  };
-
+function DraggableComponent() {
   return (
-    <DndContext onDragMove={handleDragMove} onDragEnd={handleDragEnd}>
-      {!isDropped ? draggableMarkup : null}
-      <Droppable>{isDropped ? draggableMarkup : "Drop here"}</Droppable>
-    </DndContext>
+    <Rnd
+      default={{
+        x: 0,
+        y: 0,
+        width: 320,
+        height: 200,
+      }}
+    >
+      <div
+        style={{
+          padding: "10px",
+          background: "#f0f0f0",
+          border: "1px solid #ccc",
+          color: "black",
+        }}
+      >
+        I&apos;m a draggable window!
+      </div>
+    </Rnd>
   );
 }
+
+export default function App() {
+  return <DraggableComponent />;
+}
+
+// previosu dnd code (may use later in the future)
+// const [isDropped, setIsDropped] = useState(false);
+// const [position, setPosition] = useState({ x: 0, y: 0 });
+// const draggableMarkup = (
+//   <Draggable
+//     style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
+//   >
+//     Drag me
+//   </Draggable>
+// );
+// const handleDragMove = (event: DragMoveEvent) => {
+//   const { delta } = event;
+//   setPosition((prev) => ({ x: prev.x + delta.x, y: prev.y + delta.y }));
+// };
+// const handleDragEnd = (event: DragEndEvent) => {
+//   if (event.over && event.over.id === "droppable") {
+//     setIsDropped(true);
+//   }
+// };
+// return (
+//   <DndContext onDragMove={handleDragMove} onDragEnd={handleDragEnd}>
+//     {!isDropped ? draggableMarkup : null}
+//     <Droppable>{isDropped ? draggableMarkup : "Drop here"}</Droppable>
+//   </DndContext>
+// );
 
 // import Image from "next/image";
 
