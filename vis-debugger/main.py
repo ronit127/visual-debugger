@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify
 import ast
 import networkx as nx
 from pymongo import MongoClient
+import heapq
 
 app = Flask(__name__)
 
@@ -328,6 +329,122 @@ def list_parse(code: str):
 
 list_parse(c)
 
+heap_operations = []
+
+heap_data = {}
+
+def heapCreation(heap_name):
+    heap_data[heap_name] = []
+    '''tentative operations logging'''
+    heap_operations.append(f"Heap '{heap_name}' created.")
+
+def heapPush(heap_name, value):
+    heapq.heappush(heap_data[heap_name], value)
+    heap_operations.append(f"Heap '{heap_name}': pushed {value}.")
+
+def heapPop(heap_name):
+    if heap_data[heap_name]:
+        val = heapq.heappop(heap_data[heap_name])
+        heap_operations.append(f"Heap '{heap_name}': popped {val}.")
+    else:
+        heap_operations.append(f"Heap '{heap_name}': is empty.")
+    
+def heapify(heap_name):
+    heapq.heapify(heap_data[heap_name])
+    heap_operations.append(f"Heap '{heap_name}': heapified.")
+
+def heapReplace(heap_name, value):
+    if heap_data[heap_name]:
+        old = heapq.heapreplace(heap_data[heap_name], value)
+        heap_operations.append(f"Heap '{heap_name}': Replace {old} with {value}. ")
+    else:
+        heap_operations.append(f"Heap '{heap_name}': Cannot Replace.")
+
+def heapPushPop(heap_name, value):
+    removed = heapq.heappushpop(heap_data[heap_name], value)
+    heap_operations.append(f"Heap '{heap_name}': pushpop {value} (removed {removed}) → {heap_data[heap_name]}.")
 
 
+def heap_parse(code: str):
+    tree = ast.parse(code)
+    heap_vars = set()
 
+    class Functions(ast.NodeVisitor):
+
+        def visit_Assign(self, node):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+
+                    #detecting the heap
+                    if isinstance(node.value, ast.List) and not node.value.elts:
+                        heap_vars.add(target.id)
+                        heapCreation(target.id)
+
+                
+                elif isinstance(node.value, ast.Call):
+                        func = node.value.func
+                        if isinstance(func, ast.Attribute) or isinstance(func, ast.Name):
+                            func_name = func.attr if isinstance(func, ast.Attribute) else func.id
+                            if func_name == 'heapify' and node.value.args:
+                                arg = node.value.args[0]
+                                if isinstance(arg, ast.Name):
+                                    heap_vars.add(arg.id)
+                                    print(f"Heapified list: {arg.id}")
+
+                    
+            self.generic_visit(node)
+
+        def visit_Call(self, node):
+            
+
+            func_name = None
+            module_name = None
+
+            if isinstance(node.func, ast.Attribute):
+                func_name = node.func.attr
+                if isinstance(node.func.value, ast.Name):
+                    module_name = node.func.value.id
+            elif isinstance(node.func, ast.Name):
+                func_name = node.func.id
+
+
+            if func_name in ['heappush', 'heappop', 'heapify', 'heapreplace', 'heappushpop']:
+                if node.args and isinstance(node.args[0], ast.Name):
+                    heap_name = node.args[0].id
+
+                    if heap_name in heap_vars:                       
+                        try:
+                            if func_name == 'heappush' and len(node.args) > 1:
+                                val = ast.literal_eval(node.args[1])
+                                heapPush(heap_name, val)
+                            elif func_name == 'heappop':
+                                heapPop(heap_name)
+                            elif func_name == 'heapify':
+                                heapify(heap_name)
+                            elif func_name == 'heapreplace' and len(node.args) > 1:
+                                val = ast.literal_eval(node.args[1])
+                                heapReplace(heap_name, val)
+                            elif func_name == 'heappushpop' and len(node.args) > 1:
+                                val = ast.literal_eval(node.args[1])
+                                heapPushPop(heap_name, val)
+                        except Exception as e:
+                            print(f"Error processing {func_name}: {e}")
+
+            self.generic_visit(node)
+    
+    Functions().visit(tree)
+    print(heap_operations)
+
+heapsample = """
+import heapq
+
+h = []
+heapq.heappush(h, 5)
+heapq.heappush(h, 1)
+heapq.heappop(h)
+heapq.heappushpop(h, 10)
+heapq.heapreplace(h, 3)
+heapq.heapify(h)
+"""
+
+heap_parse(heapsample)
