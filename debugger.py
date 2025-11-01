@@ -265,39 +265,117 @@ class DebuggerSession:
         self.on_step_callbacks = []
         self.execution_history = []
     
-    def start_session():
+    # need to add generate_trace function from trace_generator.py
+    def start_session(self, code, trace, breakpoints):
         """
         Initialize debugging session.
+        Args:
+            code: Source code as a string.
+            trace: Execution trace as a list of line numbers.
+            breakpoints: List of line numbers with breakpoints.
         """
-    
+        self.code_lines = string_to_lines(code)
+        self.trace_list = trace
+        self.breakpoints = breakpoints
+        self.current_line = trace[0] if trace else None
+        self.current_index = 0
+        self.call_stack_info = analyze_call_stack(trace, self.code_lines)
+        self.is_active = True
+        self.execution_history = []
+
     def execute_action(self, action):
         """
         Execute debugger action.
+        Args:
+            action: Debugger action ("step", "step over", "step out", "continue").
+        Returns:
+            Result dictionary with next line, status, and additional info.
         """
-    
+        if not self.is_active:
+            return self._create_result(None, "inactive")
+
+        next_line = get_next_line(
+            self.breakpoints,
+            self.current_line,
+            action,
+            self.code_lines,
+            self.trace_list
+        )
+
+        if next_line is None:
+            self.is_active = False
+            return self._create_result(None, "complete")
+
+        self.current_line = next_line
+        self.current_index = find_current_index(self.trace_list, next_line, self.current_index)
+        self.execution_history.append(next_line)
+        self._trigger_callbacks("step", next_line)
+        return self._create_result(next_line, "active")
+
     def _create_result(self, next_line, status):
-        """Create standardized result dictionary. (Next Line, Status, Current Code, Depth)"""
-    
+        """
+        Create standardized result dictionary.
+        Args:
+            next_line: Next line number to execute.
+            status: Status of the debugger ("active", "complete", "inactive").
+        Returns:
+            Dictionary with debugger state.
+        """
+        return {
+            "next_line": next_line,
+            "status": status,
+            "current_code": self.code_lines[next_line - 1] if next_line else None,
+            "depth": self.call_stack_info[self.current_index]['depth'] if next_line else None
+        }
+
     def register_callback(self, callback):
         """
         Register callback for visualization team.
-        Callback signature: callback(event_type: str, line_num: int)
+        Args:
+            callback: Function to call on debugger events.
         """
-    
+        self.on_step_callbacks.append(callback)
+
     def _trigger_callbacks(self, event_type, line_num):
-        """Trigger all registered callbacks."""
-    
+        """
+        Trigger all registered callbacks.
+        Args:
+            event_type: Type of event ("step", "breakpoint", etc.).
+            line_num: Line number associated with the event.
+        """
+        for callback in self.on_step_callbacks:
+            callback(event_type, line_num)
+
     def get_state(self):
         """
         Get current debugger state for visualization/frontend.
-        This is the main interface for other teams.
+        Returns:
+            Dictionary with current debugger state.
         """
-    
+        return {
+            "current_line": self.current_line,
+            "breakpoints": self.breakpoints,
+            "is_active": self.is_active,
+            "execution_history": self.execution_history
+        }
+
     def add_breakpoint(self, line_num):
-        """Add breakpoint at line."""
-    
+        """
+        Add breakpoint at the specified line.
+        Args:
+            line_num: Line number to add a breakpoint.
+        """
+        if line_num not in self.breakpoints:
+            self.breakpoints.append(line_num)
+
     def remove_breakpoint(self, line_num):
-        """Remove breakpoint at line."""
+        """
+        Remove breakpoint at the specified line.
+        Args:
+            line_num: Line number to remove the breakpoint.
+        """
+        if line_num in self.breakpoints:
+            self.breakpoints.remove(line_num)
 
 
 # ============================================
