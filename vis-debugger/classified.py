@@ -7,6 +7,10 @@ class ListTraverser(ast.NodeVisitor):
         super().__init__()
 
     def parse_code(self,code):
+        self.visit_Assign_actions = list()
+        self.visit_Delete_actions = list()
+        self.visit_AugAssign_actions = list()
+
         tree = ast.parse(code)
         self.list_vars = set()
         self.visit(tree)
@@ -24,38 +28,8 @@ class ListTraverser(ast.NodeVisitor):
         else:
             return ast.unparse(node) if hasattr(ast, "unparse") else str(node)
         
-    # def detect_list(self):
-        
-        
-    def visit_Assign(self, node):
-        # checks if it is a list assignment
-        if isinstance(node.value, ast.List):
-            # if a list adds the variable names
-            for target in node.targets:
-                if isinstance(target, ast.Name):
-                    self.list_vars.add(target.id)
-                    for elt in node.value.elts:
-                    # call the visualization add
-                        print("adding existing element") # call the visualization add
-        #self.generic_visit(node) # keep going through the rest of the tree under this node so nothing else gets missed
 
-    def visit_Call(self, node):
-        # check if method call on variable
-        if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
-            var_name = node.func.value.id
-            method_name = node.func.attr
-            if var_name in self.list_vars:
-                if method_name == 'append'or method_name == 'push':
-                    print("adding a node") # call tje visualization add
-                elif method_name == 'pop':
-                    print("deleting a node") # call the visualization delete
-        #self.generic_visit(node)
-
-class StackTraverser(ListTraverser):
-    def __init__(self):
-        super().__init__()
-
-    def visit_Assign(self, node):
+    def get_visit_Assign_actions(self,node):
         if isinstance(node.value, (ast.List, ast.ListComp)) or (
             isinstance(node.value, ast.Call)
             and isinstance(node.value.func, ast.Name)
@@ -69,68 +43,118 @@ class StackTraverser(ListTraverser):
             for target in node.targets:
                 if isinstance(target, ast.Name):
                     self.list_vars.add(target.id)
+    
+    def visit_Assign_checks(self):
+        pass
+        
+    def visit_Assign(self, node):
+        self.get_visit_Assign_actions(node)
+        self.visit_Assign_checks(node)
+        self.generic_visit(node)
 
+
+    def get_visit_Call_actions(self, node):
+        if isinstance(node.func, ast.Attribute):
+            var = node.func.value
+            method = node.func.attr
+            if isinstance(var, ast.Name) and var.id in self.list_vars:
+                args = [self.get_value(a) for a in node.args]
+                if method == "append":
+                    self.visit_Assign_actions.append(["Add",-1,[args[0]],var.id])
+                elif method == "insert":
+                    idx = args[0]
+                    item = args[1]
+                    self.visit_Assign_actions.append(["Add",idx,[item],var.id])
+                elif method == "extend":
+                    self.visit_Assign_actions.append(["Add",-1,args[0],var.id])
+                elif method == "pop":
+                    idx = -1 if not len(args) else args[0]
+                    self.visit_Assign_actions.append(["Remove",idx,var.id])
+                elif method == "count":
+                    self.visit_Assign_actions.append(["InfoRetrive",var.id])
+                elif method != "copy":
+                    self.visit_Assign_actions.append(["InPlaceMod",var.id])
+                else:
+                    self.visit_Assign_actions.append(["Copy",var.id])
+    
+    def visit_Call_checks(self):
+        pass
+
+    def visit_Call(self, node):
+        self.get_visit_Call_actions(node)
+        self.visit_Call_checks()
+        self.generic_visit(node)
+
+    
+    def get_visit_Delete_actions(self,node):
+        for target in node.targets:
+            if isinstance(target, ast.Subscript):
+                if isinstance(target.value, ast.Name) and target.value.id in self.list_vars:
+                    index = target.slice
+                    if isinstance(index, ast.Slice):
+                        self.visit_Delete_actions.append(["Slice",index])
+                    idx_val = self.get_value(index)
+                    if str(idx_val) != "-1":
+                        self.visit_Delete_actions.append(["Delete",idx_val])
+
+    def visit_Delete_checks(self):
+        pass
+
+    def visit_Delete(self,node):
+        self.get_visit_Delete_actions(node)
+        self.visit_Delete_checks()
+        self.generic_visit(node)
+
+
+    def get_visit_AugAssign_actions(self, node):
+        if isinstance(node.target, ast.Name):
+            var = node.target.id
+            if isinstance(node.op, ast.Add):
+                rhs = self.get_value(node.value)
+                rhs = rhs if type(rhs) == list else [rhs]
+                self.visit_AugAssign_actions.append(["Add",-1, rhs,var])
+
+    def visit_AugAssign_checks(self):
+        pass
+    
+    def visit_AugAssign(self, node):
+        self.get_visit_AugAssign_actions(node)
+        self.visit_AugAssign_checks()
+        self.generic_visit(node)
+
+class StackTraverser(ListTraverser):
+    def __init__(self):
+        super().__init__()
+
+    def visit_Assign_checks(self,node):
         for target in node.targets:
             if isinstance(target, ast.Subscript):
                 var = target.value
                 if isinstance(var, ast.Name):
                     raise Exception("Cannot set elements in a stack")
 
-        self.generic_visit(node)
+    def visit_Call_checks(self):
+        for action in self.visit_Assign_actions:
+            if action[0] == "Add":
+                if action[1] != -1:
+                    raise Exception("Cannot insert into middle of a stack")
+            elif action[0] == "Remove":
+                if action[1] != -1:
+                    raise Exception("Cannot remove from the middle of a stack")
+                
+    def visit_Delete_checks(self):
+        for action in self.visit_Delete_actions:
+            if action[0] == "Slice":
+                raise Exception("Slicing not allowed on stack data structures.")
+            elif action[0] == "Remove":
+                warnings.warn("Not best practices, use append and pop for stack data structures.")
+                if action[1] != -1:
+                    raise Exception("Cannot delete indices in the middle of a stack data structure")
 
-    def visit_Call(self, node):
-        if isinstance(node.func, ast.Attribute):
-            var = node.func.value
-            method = node.func.attr
-            if isinstance(var, ast.Name) and var.id in self.list_vars:
-                args = [self.get_value(a) for a in node.args]
-
-                if method == "append":
-                    print(f"Append of {', '.join(args)} to {var.id}")
-                elif method == "insert":
-                    warnings.warn(f"Not best practices on line {node.lineno}, use append and pop for stack data structures.")
-                    if len(args) != 2:
-                        raise Exception("Incorrect number of params")
-                    idx = args[0]
-                    item = args[1]
-                    if idx != "-1":
-                        raise Exception("Cannot insert into middle of a stack")
-                    print(f"Inserting {item} at index {idx} in {var.id}")
-                elif method == "pop":
-                    if len(args):
-                        if len(args) > 1:
-                            raise Exception("Incorrect number of params")
-                        if args[0] != "-1":
-                            raise Exception("Cannot pop from middle of a stack")
-                    
-                    idx = args[0] if args else "default (end)"
-                    print(f"Pop from {var.id}")
-                elif method != "copy":
-                    raise Exception("Invalid operation on a stack data structure")
-        self.generic_visit(node)
-
-    def visit_Delete(self, node):
-        for target in node.targets:
-            if isinstance(target, ast.Subscript):
-                if isinstance(target.value, ast.Name) and target.value.id in self.list_vars:
-                    index = target.slice
-                    if isinstance(index, ast.Slice):
-                        raise Exception("Slicing not allowed on stack data structures.")
-                    idx_val = self.get_value(index)
-                    if str(idx_val) != "-1":
-                        raise Exception("Cannot delete indices in the middle of a stack data structure")
-                    warnings.warn(f"Not best practices on {node.lineno}, use append and pop for stack data structures.")
-                    print(f"Pop from {target.value.id}")
-        self.generic_visit(node)
-
-    def visit_AugAssign(self, node):
-        if isinstance(node.target, ast.Name):
-            var = node.target.id
-            if isinstance(node.op, ast.Add):
-                warnings.warn(f"Not best practices on {node.lineno}, use append and pop for stack data structures.")
-                rhs = self.get_value(node.value)
-                print(f"Extending {var} with {rhs}")
-        self.generic_visit(node)
+    def visit_AugAssign_checks(self):
+        for action in self.visit_AugAssign_actions:
+            if action[0] != "Add":
+                raise Exception("Can only add to stack")
 
 
 if __name__ == "__main__":
@@ -138,7 +162,7 @@ if __name__ == "__main__":
 l = [1, 2, 3, 4]
 l.append(1)
 l.pop()
-# l.extend([5,6])
+l.extend([5,6])
 # l.insert(0, 99)
 # l.remove(2)
 l += [7]
@@ -151,7 +175,6 @@ c = a
 c.pop()
 """
     stack_traverser = StackTraverser()
-    stack_traverser.dete
     stack_traverser.parse_code(sample)
     
 
