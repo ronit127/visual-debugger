@@ -1,5 +1,6 @@
 import ast
 import warnings
+from objects import VariableData, ErrorClass, Operation
 
 
 class ListTraverser(ast.NodeVisitor):
@@ -7,10 +8,11 @@ class ListTraverser(ast.NodeVisitor):
         super().__init__()
 
     def parse_code(self,code):
+        self.actions
         self.visit_Assign_actions = list()
         self.visit_Delete_actions = list()
         self.visit_AugAssign_actions = list()
-
+        
         tree = ast.parse(code)
         self.list_vars = set()
         self.visit(tree)
