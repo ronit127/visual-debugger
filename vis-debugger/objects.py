@@ -6,13 +6,17 @@ from typing import Any
 
 @dataclass
 class Operation:
-    name: str                # e.g. "append", "pop", "insert"
+    effect: str                 # e.g. "Add", "Remove"
+    method: str                # e.g. "append", "pop", "insert"
+    line_num: int
     params: list[Any] = None # e.g. [5], or ["key", "value"]
+    
 
-#this is the written one
 @dataclass
 class ErrorClass:
     name: str
+    line_num: int
+    error_msg: str
 
 @dataclass
 class VariableData:
