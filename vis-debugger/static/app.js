@@ -3,6 +3,20 @@ document.addEventListener('DOMContentLoaded', function () {
   const outputResults = document.getElementById('output-results');
   const outputPlaceholder = document.getElementById('output-placeholder');
 
+
+  const dataStructureDropdown = document.getElementById('myDropdown');
+  const dataStructureMessage = document.getElementById('data-structure-message');
+  
+  dataStructureDropdown.addEventListener('change', updateDataStructureMessage);
+  updateDataStructureMessage(); 
+
+  const graphContainer = document.getElementById("graph-vis");
+  const arrayContainer = document.getElementById("array-vis");
+  const linkedListContainer = document.getElementById("linked-list-vis");
+
+  dataStructureDropdown.addEventListener('change', updateDataStructureVisualization);
+  updateDataStructureVisualization();
+
   const defaultCode =
     'import networkx as nx\n     \n# Create a graph\nG = nx.Graph()\n\n# Add nodes\nG.add_node(1)\nG.add_nodes_from([2, 3, 4])\n\n# Add edges\nG.add_edge(1, 2)\nG.add_edges_from([(2, 3), (3, 4)])\n\n# Remove a node\nG.remove_node(4)\n\n# Remove an edge\nG.remove_edge(1, 2)';
 
@@ -24,6 +38,37 @@ document.addEventListener('DOMContentLoaded', function () {
     const code = editor.getValue();
     processCode(code);
   });
+
+  /**
+   * Reads the selected option from the dropdown and updates the 
+   * data-structure-message div in the output placeholder.
+   */
+  function updateDataStructureMessage() {
+    const selectedText = dataStructureDropdown.options[dataStructureDropdown.selectedIndex].text;
+    
+    const newMessage = `Working with: ${selectedText}`;
+    
+    dataStructureMessage.textContent = newMessage;
+    
+    dataStructureMessage.style.fontSize = '1.5rem';
+    dataStructureMessage.style.fontWeight = '700';
+    dataStructureMessage.style.marginBottom = '10px';
+    dataStructureMessage.style.color = '#fff'; // White text
+  }
+
+  function updateDataStructureVisualization() {
+    const selectedOption = dataStructureDropdown.value;
+    graphContainer.style.display = 'none';
+    arrayContainer.style.display = 'none';
+    linkedListContainer.style.display = 'none';
+    if (selectedOption == "option1") {
+      graphContainer.style.display = 'block';
+    } else if (selectedOption == "option2") {
+      arrayContainer.style.display = 'block';
+    } else {
+      linkedListContainer.style.display = 'block';
+    }
+  }
 
   async function processCode(code) {
     try {

@@ -37,13 +37,22 @@
         </div>
     </div>
 
+    
+
+
     <!-- Main App Container -->
     <div class="app-container">
         <header class="app-header">
             <h1>Python Code Editor & Visualizer</h1>
             <div class="header-actions">
+                <label id = "menu1" for="myDropdown">Choose a Data Structure:</label>
+                <select name="myDropdown" id="myDropdown">
+                    <option value="option1">Graphs</option>
+                    <option value="option2">Arrays</option>
+                    <option value="option3">Linked Lists</option>
+                </select>
                 <button id="run-code-btn">Run Code</button>
-                <button id="debug-btn">Debug</button>
+                <button id="debug-btn">Debug</button>  
             </div>
         </header>
         
@@ -55,9 +64,11 @@
             
             <!-- Output Section -->
             <section class="output-section">
+                <div id="data-structure-message"></div> 
                 <div id="output-container" class="output-container">
                     <div id="output-placeholder" class="placeholder-message">
-                        Run your code to see the output
+                        
+                        <div>Run your code to see the output</div>
                     </div>
                     <div id="output-results" class="output-results" style="display: none;"></div>
                 </div>
@@ -65,8 +76,30 @@
             
             <!-- Visualization Section -->
             <section class="visualizer-section">
-                <h1>Interactive Graph Visualization</h1>
-                <svg id="graphSVG" width="600" height="400"></svg>
+                
+                <div id="graph-vis" class="visualization-container" style="display: none;">
+                    <h1>Interactive Graph Visualization</h1>
+                    <svg id="graphSVG" width="600" height="400"></svg>
+                </div>
+
+                <div id="linked-list-vis" class="visualization-container" style="display: none;">
+                    <h1>Interactive Linked List Visualization</h1>
+                    <svg id="linkedListSVG" width="600" height="400"></svg>
+                    
+                </div>
+                
+                <div id="array-vis" class="visualization-container" style="display: none;">
+                    <h1>Interactive Array Visualization</h1>
+                    <svg id="arraySVG" width="600" height="400"></svg>
+
+                    <div id="array-controls" class="controls"> 
+                        <input type="text" id="newElement" placeholder="Enter element value" />
+                        <button id="addButton">Add Element</button>
+                        <input type="number" id="delIndex" placeholder="Index to delete" min="0" style="margin-left:20px;"/>
+                        <button id="deleteButton">Delete Element</button>
+                    </div>
+                </div>
+
             </section>
         </main>
     </div>

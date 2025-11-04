@@ -306,3 +306,23 @@
     color: #23234a;
     background: #f8f9fb;
   }
+
+
+  /* My Menu */ 
+  #menu1 {
+    /* border-width: 2px;
+    border-style: solid;
+    border-color: #3291a8; */
+    font-family: "canolas"; 
+    color: white;
+    font-size: 20px;
+    font-weight: bold;
+  }
+
+  /*
+  #myDropdown {
+    border-width: 3px;
+    #border-style: solid;
+  }
+  */
+  
