@@ -7,14 +7,20 @@ class ListTraverser(ast.NodeVisitor):
     def __init__(self):
         super().__init__()
 
-    def parse_code(self,code):
+    def which_node(self,node_name):
+        for i,item in enumerate(self.list_vars):
+            if item.name == node_name:
+                return i
+
+    def parse_code(self, code: str) -> list[VariableData]:
         self.actions = list()
-        
         tree = ast.parse(code)
-        self.list_vars = set()
+        self.list_vars = list()
         self.visit(tree)
 
-    def get_value(self,node):
+        return self.list_vars
+
+    def get_value(self, node):
         """Return a representation of an AST node's value."""
         if isinstance(node, ast.Constant):
             return repr(node.value)
@@ -39,24 +45,38 @@ class ListTraverser(ast.NodeVisitor):
         ):
             for target in node.targets:
                 if isinstance(target, ast.Name):
-                    self.list_vars.add(target.id)
+                    new_var = VariableData(
+                        name=target.id,
+                        var_type="list",
+                        operations=[],
+                        errors=[]
+                    )
+                    if new_var not in self.list_vars:
+                        self.list_vars.append(new_var)
 
         elif isinstance(node.value, ast.Name) and node.value.id in self.list_vars:
             for target in node.targets:
                 if isinstance(target, ast.Name):
-                    self.list_vars.add(target.id)
+                    new_var = VariableData(
+                        name=target.id,
+                        var_type="list",
+                        operations=[],
+                        errors=[]
+                    )
+                    if new_var not in self.list_vars:
+                        self.list_vars.append(new_var)
 
         for target in node.targets:
             if isinstance(target, ast.Subscript):
                 var = target.value
                 if isinstance(var, ast.Name):
-                    # operation = Operation(
-                    #     effect="Set",
-                    #     method=None,
-                    #     line_num=node.lineno,
-                    #     params=[None]
-                    # )
-                    self.actions.append(["Set",1, var])
+                    operation = Operation(
+                        effect="Set",
+                        method=None,
+                        line_num=node.lineno,
+                        params=[]
+                    )
+                    self.list_vars[self.which_node(target.id)].operations.append(operation)
         
     def visit_Assign(self, node):
         self.get_visit_Assign_actions(node)
@@ -70,23 +90,32 @@ class ListTraverser(ast.NodeVisitor):
             method = node.func.attr
             if isinstance(var, ast.Name) and var.id in self.list_vars:
                 args = [self.get_value(a) for a in node.args]
+                operation = Operation()
                 if method == "append":
-                    self.actions.append(["Add",-1,[args[0]],var.id])
+                    operation.effect = "Add"
+                    operation.method = "append"
                 elif method == "insert":
-                    idx = args[0]
-                    item = args[1]
-                    self.actions.append(["Add",idx,[item],var.id])
+                    operation.effect = "Add"
+                    operation.method = "insert"
                 elif method == "extend":
-                    self.actions.append(["Add",-1,args[0],var.id])
+                    operation.effect = "Add"
+                    operation.method = "extend"
                 elif method == "pop":
-                    idx = -1 if not len(args) else args[0]
-                    self.actions.append(["Remove",idx,var.id])
+                    operation.effect = "Remove"
+                    operation.method = "pop"
                 elif method == "count":
-                    self.actions.append(["InfoRetrive",var.id])
+                    operation.effect = "InfoRetrieve"
+                    operation.method = "count"
                 elif method != "copy":
-                    self.actions.append(["InPlaceMod",var.id])
+                    operation.effect = "InPlaceMod"
+                    operation.method = "unspecified"
                 else:
-                    self.actions.append(["Copy",var.id])
+                    operation.effect = "Copy"
+                    operation.method = "copy"
+
+                operation.line_num = node.lineno
+                operation.params = list() if not len(args) else args[0]
+                self.list_vars[self.which_node(var.id)].operations.append(operation)
 
     def visit_Call(self, node):
         self.get_visit_Call_actions(node)
@@ -100,10 +129,22 @@ class ListTraverser(ast.NodeVisitor):
                 if isinstance(target.value, ast.Name) and target.value.id in self.list_vars:
                     index = target.slice
                     if isinstance(index, ast.Slice):
-                        self.actions.append(["Slice",index])
+                        operation = Operation(
+                            effect="Slice",
+                            method=None,
+                            line_num=node.lineno,
+                            params=[index]
+                        )
+                        self.list_vars[self.which_node(target.id)].operations.append(operation)
                     idx_val = self.get_value(index)
                     if str(idx_val) != "-1":
-                        self.actions.append(["Delete",idx_val])
+                        operation = Operation(
+                            effect="Delete",
+                            method=None,
+                            line_num=node.lineno,
+                            params=[idx_val]
+                        )
+                        self.list_vars[self.which_node(target.id)].operations.append(operation)
 
     def visit_Delete(self,node):
         self.get_actions(node)
@@ -117,7 +158,13 @@ class ListTraverser(ast.NodeVisitor):
             if isinstance(node.op, ast.Add):
                 rhs = self.get_value(node.value)
                 rhs = rhs if type(rhs) == list else [rhs]
-                self.actions.append(["Add",-1, rhs,var])
+                operation = Operation(
+                    effect="Add",
+                    method=None,
+                    line_num=node.lineno,
+                    params=[-1]
+                )
+                self.list_vars[self.which_node(var)].operations.append(operation)
     
     def visit_AugAssign(self, node):
         self.get_AugAssign_checks_actions(node)
@@ -128,18 +175,18 @@ class StackTraverser(ListTraverser):
     def __init__(self):
         super().__init__()
 
-    def do_ds_check(self):
-        for action in self.actions:
-            if action[0] == "Add":
-                if action[1] != -1:
-                    raise Exception("Cannot insert into middle of a stack")
-            elif action[0] == "Remove":
-                if action[1] != -1:
-                    raise Exception("Cannot remove from the middle of a stack")
-            elif action[0] == "Slice":
-                raise Exception("Slicing not allowed on stack data structures.")
-            elif action[0] == "Set":
-                raise Exception("Cannot set in a stack")
+    # def do_ds_check(self):
+    #     for action in self.actions:
+    #         if action[0] == "Add":
+    #             if action[1] != -1:
+    #                 raise Exception("Cannot insert into middle of a stack")
+    #         elif action[0] == "Remove":
+    #             if action[1] != -1:
+    #                 raise Exception("Cannot remove from the middle of a stack")
+    #         elif action[0] == "Slice":
+    #             raise Exception("Slicing not allowed on stack data structures.")
+    #         elif action[0] == "Set":
+    #             raise Exception("Cannot set in a stack")
 
 
 if __name__ == "__main__":
@@ -160,7 +207,8 @@ c = a
 c.pop()
 """
     stack_traverser = StackTraverser()
-    stack_traverser.parse_code(sample)
+    x = stack_traverser.parse_code(sample)
+    print(x)
     
 
 

@@ -6,10 +6,10 @@ from typing import Any
 
 @dataclass
 class Operation:
-    effect: str                 # e.g. "Add", "Remove"
-    method: str                # e.g. "append", "pop", "insert"
-    line_num: int
-    params: list[Any] = None # e.g. [5], or ["key", "value"]
+    effect: str = ""                 # e.g. "Add", "Remove"
+    method: str = ""                # e.g. "append", "pop", "insert"
+    line_num: int = -1
+    params: list[Any] = field(default_factory=list) # e.g. [5], or ["key", "value"]
     
 
 @dataclass
@@ -29,4 +29,4 @@ class VariableData:
         return hash(self.name)
     
     def __eq__(self, other):
-        return self.name == other.name
+        return self.name == other
