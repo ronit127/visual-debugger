@@ -3,19 +3,85 @@
 import React, { useState } from "react";
 // react-rnd library for draggable, resizeable window
 import { Rnd } from "react-rnd";
-// import "../static/styles.css";
+import "./styles_react.css";
 // dnd-kit library
 // import { DndContext, DragEndEvent, DragMoveEvent } from "@dnd-kit/core";
 // import { Draggable } from "./Draggable";
 // import { Droppable } from "./Droppable";
 
-// function EditorSection() {
-//   return (
-//     <section className="editor-section">
-//       <div id="monaco-editor" className="monaco-editor-container"></div>
-//     </section>
-//   );
-// }
+function ContentHeader() {
+  return (
+    <header className="app-header">
+      <h1>Python Code Editor & Visualizer</h1>
+      <div className="header-actions">
+        <button id="run-code-btn">Run Code</button>
+        <button id="debug-btn">Debug</button>
+      </div>
+    </header>
+  );
+}
+
+function DebugMenu() {
+  return (
+    <div id="debug-menu" className="debug-menu" style={{ display: "none" }}>
+      <div className="debug-menu-content">
+        <div className="debug-menu-header">
+          <h3>Debug Controls</h3>
+          <button id="close-debug-btn" className="close-debug-btn">
+            ×
+          </button>
+        </div>
+        <div className="debug-actions">
+          <button id="debug-step-btn">Step</button>
+          <button id="debug-step-over-btn">Step Over</button>
+          <button id="debug-step-into-btn">Step Into</button>
+          <button id="debug-continue-btn">Continue</button>
+          <button id="debug-stop-btn">Stop</button>
+        </div>
+        <div className="debug-variables">
+          <h4>Variables</h4>
+          <div id="variable-list" className="variable-list">
+            <p>Variables will appear here during debugging</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditorSection() {
+  return (
+    <section className="editor-section">
+      <div id="monaco-editor" className="monaco-editor-container"></div>
+    </section>
+  );
+}
+
+function OutputSection() {
+  return (
+    <section className="output-section">
+      <div id="output-container" className="output-container">
+        <div id="output-placeholder" className="placeholder-message">
+          Run your code to see the output
+        </div>
+        <div
+          id="output-results"
+          className="output-results"
+          style={{ display: "none" }}
+        ></div>
+      </div>
+    </section>
+  );
+}
+
+function VisualizationSection() {
+  return (
+    <section className="visualizer-section">
+      <h1>Interactive Graph Visualization</h1>
+      <svg id="graphSVG" width="600" height="400"></svg>
+    </section>
+  );
+}
 
 function DraggableComponent() {
   const [visible, setVisible] = useState(true);
@@ -90,12 +156,26 @@ function DraggableComponent() {
   );
 }
 
+function MainContent() {
+  return (
+    <main className="main-content">
+      <EditorSection />
+      <OutputSection />
+      <VisualizationSection />
+      <DraggableComponent />
+    </main>
+  );
+}
+
 export default function App() {
   return (
-    // <div>
-    //   <EditorSection />
-    <DraggableComponent />
-    // </div>
+    <>
+      <DebugMenu />
+      <div className="app-container">
+        <ContentHeader />
+        <MainContent />
+      </div>
+    </>
   );
 }
 
