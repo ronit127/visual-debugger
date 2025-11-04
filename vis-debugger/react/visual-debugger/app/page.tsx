@@ -3,10 +3,19 @@
 import React, { useState } from "react";
 // react-rnd library for draggable, resizeable window
 import { Rnd } from "react-rnd";
+// import "../static/styles.css";
 // dnd-kit library
 // import { DndContext, DragEndEvent, DragMoveEvent } from "@dnd-kit/core";
 // import { Draggable } from "./Draggable";
 // import { Droppable } from "./Droppable";
+
+// function EditorSection() {
+//   return (
+//     <section className="editor-section">
+//       <div id="monaco-editor" className="monaco-editor-container"></div>
+//     </section>
+//   );
+// }
 
 function DraggableComponent() {
   const [visible, setVisible] = useState(true);
@@ -82,7 +91,12 @@ function DraggableComponent() {
 }
 
 export default function App() {
-  return <DraggableComponent />;
+  return (
+    // <div>
+    //   <EditorSection />
+    <DraggableComponent />
+    // </div>
+  );
 }
 
 // previosu dnd code (may use later in the future)
