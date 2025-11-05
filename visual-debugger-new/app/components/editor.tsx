@@ -1,0 +1,38 @@
+import React from "react";
+import Editor from "@monaco-editor/react";
+
+type CodeEditorProps = {
+  code: string;
+  onChange?: (value: string) => void;
+  height?: string;
+  width?: string;
+};
+
+const CodeEditor: React.FC<CodeEditorProps> = ({
+  code,
+  onChange,
+  height = "500px",
+  width = "100%",
+}) => {
+  return (
+    <div className="rounded-xl overflow-hidden border border-gray-300 shadow-sm">
+      <Editor
+        height={height}
+        width={width}
+        defaultLanguage="python"
+        defaultValue={code}
+        onChange={(value) => onChange?.(value || "")}
+        theme="vs-dark"
+        options={{
+          minimap: { enabled: false },
+          fontSize: 14,
+          scrollBeyondLastLine: false,
+          automaticLayout: true,
+          tabSize: 2,
+        }}
+      />
+    </div>
+  );
+};
+
+export default CodeEditor;
