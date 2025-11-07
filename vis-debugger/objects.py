@@ -10,6 +10,7 @@ class Operation:
     method: str = ""                # e.g. "append", "pop", "insert"
     line_num: int = -1
     params: list[Any] = field(default_factory=list) # e.g. [5], or ["key", "value"]
+    index: Any = None
     
 
 @dataclass

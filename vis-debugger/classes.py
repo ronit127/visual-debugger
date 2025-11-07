@@ -13,7 +13,6 @@ class ListTraverser(ast.NodeVisitor):
                 return i
 
     def parse_code(self, code: str) -> list[VariableData]:
-        self.actions = list()
         tree = ast.parse(code)
         self.list_vars = list()
         self.visit(tree)
@@ -43,6 +42,7 @@ class ListTraverser(ast.NodeVisitor):
             and isinstance(node.value.func, ast.Name)
             and node.value.func.id == "list"
         ):
+            
             for target in node.targets:
                 if isinstance(target, ast.Name):
                     new_var = VariableData(
@@ -76,7 +76,7 @@ class ListTraverser(ast.NodeVisitor):
                         line_num=node.lineno,
                         params=[]
                     )
-                    self.list_vars[self.which_node(target.id)].operations.append(operation)
+                    self.list_vars[self.which_node(target.value.id)].operations.append(operation)
         
     def visit_Assign(self, node):
         self.get_visit_Assign_actions(node)
@@ -94,15 +94,19 @@ class ListTraverser(ast.NodeVisitor):
                 if method == "append":
                     operation.effect = "Add"
                     operation.method = "append"
+                    operation.index = -1
                 elif method == "insert":
                     operation.effect = "Add"
                     operation.method = "insert"
+                    operation.index = args[0]
                 elif method == "extend":
                     operation.effect = "Add"
                     operation.method = "extend"
+                    operation.index = -1
                 elif method == "pop":
                     operation.effect = "Remove"
                     operation.method = "pop"
+                    operation.index = args[0] if len(args) else -1
                 elif method == "count":
                     operation.effect = "InfoRetrieve"
                     operation.method = "count"
@@ -142,7 +146,8 @@ class ListTraverser(ast.NodeVisitor):
                             effect="Delete",
                             method=None,
                             line_num=node.lineno,
-                            params=[idx_val]
+                            params=[idx_val],
+                            index=idx_val
                         )
                         self.list_vars[self.which_node(target.id)].operations.append(operation)
 
@@ -162,7 +167,8 @@ class ListTraverser(ast.NodeVisitor):
                     effect="Add",
                     method=None,
                     line_num=node.lineno,
-                    params=[-1]
+                    params=[-1],
+                    index = -1
                 )
                 self.list_vars[self.which_node(var)].operations.append(operation)
     
@@ -175,18 +181,28 @@ class StackTraverser(ListTraverser):
     def __init__(self):
         super().__init__()
 
-    # def do_ds_check(self):
-    #     for action in self.actions:
-    #         if action[0] == "Add":
-    #             if action[1] != -1:
-    #                 raise Exception("Cannot insert into middle of a stack")
-    #         elif action[0] == "Remove":
-    #             if action[1] != -1:
-    #                 raise Exception("Cannot remove from the middle of a stack")
-    #         elif action[0] == "Slice":
-    #             raise Exception("Slicing not allowed on stack data structures.")
-    #         elif action[0] == "Set":
-    #             raise Exception("Cannot set in a stack")
+    def do_ds_check(self):
+        for i,var in enumerate(self.list_vars):
+            for action in var.operations:
+                error = ErrorClass(
+                    name="DS Rule Violation Error",
+                    line_num=action.line_num,
+                    error_msg=""
+                )
+                if action.effect == "Add":
+                    if action.index != -1:
+                        error.error_msg = "Cannot insert into middle of a stack"
+                        self.list_vars[i].errors.append(error)
+                elif action.effect == "Remove":
+                    if action.index != -1:
+                        error.error_msg = "Cannot remove from the middle of a stack"
+                        self.list_vars[i].errors.append(error)
+                elif action.effect == "Slice":
+                    error.error_msg = "Slicing not allowed on stack data structures."
+                    self.list_vars[i].errors.append(error)
+                elif action.effect == "Set":
+                    error.error_msg = "Cannot set in a stack"
+                    self.list_vars[i].errors.append(error)
 
 
 if __name__ == "__main__":
@@ -198,7 +214,7 @@ l.extend([5,6])
 # l.insert(0, 99)
 # l.remove(2)
 l += [7]
-# l[0] = 100
+l[0] = 100
 del l[-1]
 a = list()
 b = a        # aliasing
