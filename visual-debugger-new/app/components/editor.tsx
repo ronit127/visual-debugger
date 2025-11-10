@@ -6,6 +6,7 @@ type CodeEditorProps = {
   onChange?: (value: string) => void;
   height?: string;
   width?: string;
+  zIndex?: number;
 };
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -13,9 +14,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   onChange,
   height = "500px",
   width = "100%",
+  zIndex,
 }) => {
   return (
-    <div className="rounded-xl overflow-hidden border border-gray-300 shadow-sm">
+    <div
+      className="rounded-xl overflow-hidden border border-gray-300 shadow-sm"
+      style={{ position: "relative", zIndex }}
+    >
       <Editor
         height={height}
         width={width}
