@@ -25,7 +25,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         height={height}
         width={width}
         defaultLanguage="python"
-        defaultValue={code}
+        value={code}
         onChange={(value) => onChange?.(value || "")}
         theme="vs-dark"
         options={{
