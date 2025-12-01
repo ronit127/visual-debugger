@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import CodeEditor from "./components/editor";
 import DraggableComponent from "./components/draggable";
 // experimenting with React Flow library for connections between editor and draggable components
@@ -13,8 +13,9 @@ export default function App() {
   );
   // changing between editor and debug modes
   const [mode, setMode] = useState<boolean>(true);
+  // const [operations, setOperations] = useState([]); // will likely be needed for visualization/backend stuff
 
-  // will be used for adding nodes
+  // will be used for adding nodes, may be replaced with backend implementation
   const handleChange = (value: string) => {
     if (value?.endsWith("\n")) {
       setCode(value + "// placeholder");
@@ -22,6 +23,22 @@ export default function App() {
       setCode(value ?? "");
     }
   };
+
+  const runCode = () => {
+    // do some backend stuff
+  };
+
+  // auto update visualization (after short delay)
+  useEffect(() => {
+    // setup code
+    const timeout = setTimeout(() => {
+      runCode();
+    }, 600);
+
+    return () => {
+      clearTimeout(timeout);
+    }; // clean up code
+  }, [code]); // dependencies
 
   const handleClick = () => {
     setMode(!mode);
@@ -70,6 +87,13 @@ export default function App() {
         onClick={handleClick}
       >
         {mode ? "Editor Mode" : "Debug Mode"}
+      </button>
+      {/* Manual Run Button */}
+      <button
+        className="absolute top-5 right-40 z-50 p-5 rounded-lg bg-violet-500 hover:bg-violet-700 hover:cursor-pointer"
+        onClick={runCode}
+      >
+        Run
       </button>
     </div>
   );

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Rnd } from "react-rnd";
+import SVGComponent from "./svg";
 
 interface DraggableComponentProps {
   zIndex?: number;
@@ -77,7 +78,8 @@ const DraggableComponent: React.FC<DraggableComponentProps> = ({ zIndex }) => {
           color: "black",
         }}
       >
-        I&apos;m a draggable, closeable, resizeable window!
+        {/* I&apos;m a draggable, closeable, resizeable window! */}
+        <SVGComponent />
       </div>
     </Rnd>
   );
