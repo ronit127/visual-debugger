@@ -324,8 +324,8 @@ class DebuggerSession:
         return {
             "next_line": next_line,
             "status": status,
-            "current_code": self.code_lines[next_line - 1] if next_line and next_line <= len(self.code_lines) else None,
-            "depth": self.call_stack_info[self.current_index]['depth'] if next_line and self.current_index in self.call_stack_info else None
+            "current_code": self.code_lines[next_line - 1] if next_line else None,
+            "depth": self.call_stack_info[self.current_index]['depth'] if next_line else None
         }
 
     def register_callback(self, callback):
