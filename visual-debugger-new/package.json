@@ -1,7 +1,22 @@
 {
-  "name": "visual-debugger-new",
+  "name": "visual-debugger",
   "version": "0.1.0",
+  "description": "Real-time Python code visualization and debugging tool with interactive data structure animations",
+  "author": "",
+  "license": "MIT",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "keywords": [
+    "debugger",
+    "visualization",
+    "python",
+    "algorithm",
+    "data-structures",
+    "education"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
