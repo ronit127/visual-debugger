@@ -27,7 +27,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         defaultLanguage="python"
         value={code}
         onChange={(value) => onChange?.(value || "")}
-        theme="vs-dark"
+        theme="vs-light"
         options={{
           minimap: { enabled: false },
           fontSize: 14,

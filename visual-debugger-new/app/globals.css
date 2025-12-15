@@ -3,12 +3,18 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* user-requested warm reddish palette */
+  --btn-primary: #CB807D; /* warm rose */
+  --btn-primary-dark: #7c58a5;
+  --btn-secondary: #F0B5B3; /* blush */
+  --btn-secondary-dark: #D8A3A0;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  /* Prefer Vend Sans (loaded via Google Fonts link) then Poppins, then Geist */
+  --font-sans: "Vend Sans", var(--font-poppins, var(--font-geist-sans));
   --font-mono: var(--font-geist-mono);
 }
 
@@ -22,5 +28,195 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Modern shadcn-style buttons */
+.btn-avant {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.375rem;
+  font-size: 0.85rem;
+  font-weight: 400;
+  line-height: 1.0rem;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-avant:focus-visible {
+  outline: 2px solid var(--btn-primary);
+  outline-offset: 2px;
+}
+
+.btn-avant:disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.btn-avant.primary {
+  background: var(--btn-primary);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.btn-avant.primary:hover {
+  background: color-mix(in srgb, var(--btn-primary) 90%, white);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+}
+
+.btn-avant.primary:active {
+  background: color-mix(in srgb, var(--btn-primary) 95%, black);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transform: translateY(1px);
+}
+
+.btn-avant.secondary {
+  /* light, shadcn-style secondary: subtle tinted background, primary-colored text */
+  background: color-mix(in srgb, var(--btn-secondary) 12%, white);
+  color: var(--btn-primary-dark);
+  border: 1px solid color-mix(in srgb, var(--btn-secondary) 30%, transparent);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+}
+
+.btn-avant.secondary:hover {
+  background: color-mix(in srgb, var(--btn-secondary) 20%, white);
+  border-color: color-mix(in srgb, var(--btn-secondary) 45%, transparent);
+  transform: translateY(-1px);
+}
+
+.btn-avant.secondary:active {
+  background: color-mix(in srgb, var(--btn-secondary) 24%, white);
+  transform: translateY(1px);
+}
+
+/* Ghost variant (bonus) */
+.btn-avant.ghost {
+  background: transparent;
+  color: var(--color-foreground);
+  border: none;
+  box-shadow: none;
+}
+
+.btn-avant.ghost:hover {
+  background: color-mix(in srgb, var(--color-foreground) 8%, transparent);
+}
+
+.btn-avant.ghost:active {
+  background: color-mix(in srgb, var(--color-foreground) 12%, transparent);
+}
+
+/* Destructive variant (bonus) */
+.btn-avant.destructive {
+  background: #ef4444;
+  color: white;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.btn-avant.destructive:hover {
+  background: #dc2626;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+}
+
+.btn-avant.destructive:active {
+  background: #b91c1c;
+  transform: translateY(1px);
+}
+
+/* Size variants */
+.btn-avant.sm {
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  line-height: 1rem;
+}
+
+.btn-avant.lg {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9375rem;
+  line-height: 1.5rem;
+}
+
+.btn-avant.icon {
+  padding: 0.625rem;
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+/* Small whimsical accents */
+.whimsy-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #fff, rgba(203,128,125,0.12));
+  box-shadow: 0 6px 18px rgba(203,128,125,0.08);
+  animation: whim-bob 3s ease-in-out infinite;
+}
+
+.close-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: linear-gradient(180deg,#ff7b7b,#ff4b4b);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+
+@keyframes whim-bob {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+  100% { transform: translateY(0); }
+}
+
+/* Card surface for consistency */
+.card { background: #fff; border-radius: 12px; padding: 0.5rem; box-shadow: 0 6px 18px rgba(16,24,32,0.04); border: 1px solid rgba(16,24,32,0.03);} 
+
+/* Glassy nav bar for draggable header */
+.glass-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 10px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.66), rgba(255,255,255,0.52));
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-bottom: 1px solid rgba(16,24,32,0.04);
+  cursor: move;
+}
+
+.close-button {
+  width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  background: linear-gradient(180deg,#ff7b7b,#ff4b4b);
+  box-shadow: 0 8px 20px rgba(203,64,64,0.18), inset 0 -2px 0 rgba(0,0,0,0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.close-button:active {
+  transform: translateY(1px) scale(0.995);
+}
+
+.panel-title { font-weight: 600; font-size: 13px; color: #111827; }
+
+.glass-controls { margin-left: auto; display:flex; align-items:center; gap:8px; }
+
+/* Header that's 20% wider than the main content max width (max-w-6xl = 72rem) */
+.wide-header {
+  width: 100%;
+  max-width: 86.4rem; /* 72rem * 1.2 */
+  margin-left: auto;
+  margin-right: auto;
 }
