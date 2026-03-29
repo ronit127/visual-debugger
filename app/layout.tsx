@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Poppins } from "next/font/google";
+import { Geist, Geist_Mono, Poppins, Instrument_Sans, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,6 +15,23 @@ const geistMono = Geist_Mono({
 const poppins = Poppins({
   variable: "--font-poppins",
   weight: ["300", "400", "600", "700", "800"],
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const instrumentSans = Instrument_Sans({
+  variable: "--font-instrument-sans",
+  subsets: ["latin"],
+});
+
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
   display: "swap",
 });
@@ -37,7 +54,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Vend+Sans:ital,wght@0,300..700;1,300..700&display=swap" rel="stylesheet" />
       </head>
       <body
-        className={`${poppins.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${poppins.variable} ${geistSans.variable} ${geistMono.variable} ${instrumentSans.variable} ${inter.variable} ${jetbrainsMono.variable} antialiased`}
       >
         {children}
       </body>

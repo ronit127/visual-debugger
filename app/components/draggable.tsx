@@ -3,13 +3,18 @@
 import React, { ReactNode, useState } from "react";
 import { Rnd } from "react-rnd";
 import SVGComponent from "./svg";
-import Graph, { GraphAPI } from "./Graph";
+import Graph from "./Graph";
+import { GoX } from "react-icons/go";
+import AskButton from "./AskButton";
+import type { ContextAttachment } from "../types/ai";
 
 interface DraggableComponentProps {
   id: string;
   zIndex?: number;
   type?: "svg" | "graph";
   title?: string;
+  datatype?: string;
+  varname?: string;
   defaultWidth?: number;
   defaultHeight?: number;
   defaultX?: number;
@@ -17,7 +22,9 @@ interface DraggableComponentProps {
   children?: ReactNode;
   onFocus?: (id: string) => void;
   onClose?: (id: string) => void;
-  isActive?: boolean;
+  onAskAI?: (attachment: ContextAttachment) => void;
+  panelKind?: string;
+  panelPayload?: unknown;
 }
 
 const DraggableComponent: React.FC<DraggableComponentProps> = ({
@@ -25,6 +32,8 @@ const DraggableComponent: React.FC<DraggableComponentProps> = ({
   zIndex,
   type = "svg",
   title = "Window",
+  datatype,
+  varname,
   defaultWidth = 300,
   defaultHeight = 200,
   defaultX = 0,
@@ -32,23 +41,17 @@ const DraggableComponent: React.FC<DraggableComponentProps> = ({
   children,
   onFocus,
   onClose,
-  isActive = false,
+  onAskAI,
+  panelKind,
+  panelPayload,
+
 }) => {
-  const [graphAPI, setGraphAPI] = useState<GraphAPI | null>(null);
   const [position, setPosition] = useState({ x: defaultX, y: defaultY });
   const [size, setSize] = useState({ width: defaultWidth, height: defaultHeight });
+  const [isDragging, setIsDragging] = useState(false);
 
-  const renderContent = () => {
-    if (children) return <>{children}</>;
-    if (type === "graph") {
-      return <Graph width={size.width} height={size.height} onGraphReady={(api) => setGraphAPI(api)} />;
-    }
-    return <SVGComponent />;
-  };
-
-  const handleFocus = () => onFocus?.(id);
-  const handleClose = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleClose = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     onClose?.(id);
   };
 
@@ -56,67 +59,75 @@ const DraggableComponent: React.FC<DraggableComponentProps> = ({
     <Rnd
       position={position}
       size={size}
-      onDragStop={(e, d) => setPosition({ x: d.x, y: d.y })}
-      onResizeStop={(e, direction, ref, delta, position) => {
+      onDragStart={() => {
+        setIsDragging(true);
+        onFocus?.(id);
+      }}
+      onDragStop={(e, d) => {
+        setPosition({ x: d.x, y: d.y });
+        setIsDragging(false);
+      }}
+      onResizeStop={(e, direction, ref) => {
         setSize({ width: parseInt(ref.style.width), height: parseInt(ref.style.height) });
-        setPosition(position);
+        setPosition({ x: parseInt(ref.style.left) || position.x, y: parseInt(ref.style.top) || position.y });
       }}
       minHeight={100}
       minWidth={150}
       bounds="window"
       dragHandleClassName="drag-area"
       cancel=".no-drag"
-      onMouseDown={handleFocus}
-      style={{
-        zIndex,
+      onMouseDown={(e) => {
+        const t = e.target as HTMLElement | null;
+        if (t?.closest?.('.simple-close-btn')) return;
+        onFocus?.(id);
       }}
-      className={isActive ? "active-panel" : ""}
+      style={{ zIndex, background: "transparent" }}
+      className={`simple-panel-rnd shadow-sm ${isDragging ? "is-dragging" : ""}`}
     >
-      <div
-        style={{
-          borderRadius: "10px",
-          overflow: "hidden",
-          width: "100%",
-          height: "100%",
-          boxShadow: isActive ? "0 10px 30px rgba(0,0,0,0.25)" : "0 4px 16px rgba(0,0,0,0.12)",
-          transition: "box-shadow 0.2s ease",
-        }}
-      >
-        <div className={`drag-area glass-nav`}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <div
-              className="no-drag close-button"
-              onClick={handleClose}
-              role="button"
+      <div className="simple-panel">
+        {/* header */}
+        <div className="simple-panel-header drag-area">
+          {datatype && varname ? (
+            <div className="simple-panel-title-container">
+              <span className="simple-panel-datatype">{datatype}</span>
+              <span className="simple-panel-separator">:</span>
+              <span className="simple-panel-varname">{varname}</span>
+            </div>
+          ) : (
+          <span className="simple-panel-title">{title}</span>
+          )}
+          <div style={{ display: "flex", alignItems: "center", gap: "2px" }}>
+            {onAskAI && panelKind && varname && (
+              <AskButton
+                panelId={id}
+                panelKind={panelKind}
+                panelTitle={title}
+                panelPayload={panelPayload}
+                varname={varname}
+                onAsk={onAskAI}
+              />
+            )}
+            <button
+              className="simple-close-btn no-drag cursor-pointer"
+              onMouseDown={handleClose}
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onClose?.(id);
+                }
+              }}
               aria-label={`Close ${title}`}
-            />
-            <div className="whimsy-dot" aria-hidden="true" />
-          </div>
-
-          <div className="panel-title">{title}</div>
-
-          <div className="glass-controls no-drag">
-            {/* place for future controls, keep it no-drag so clicks don't start dragging */}
-            <div className="whimsy-dot" aria-hidden="true" />
+            >
+              <GoX size={15} />
+            </button>
           </div>
         </div>
 
-        <div
-          className="no-drag"
-          style={{
-            position: "relative",
-            width: "100%",
-            height: "calc(100% - 40px)",
-            boxSizing: "border-box",
-            padding: type === "graph" ? "10px" : "20px",
-            background: "#f0f0f0",
-            border: "1px solid #ccc",
-            color: "black",
-            overflow: "auto",
-            cursor: "auto",
-          }}
-        >
-          {renderContent()}
+        {/* content */}
+        <div className="simple-panel-content no-drag">
+          {children ?? (type === "graph" ? <Graph width={size.width} height={size.height} /> : <SVGComponent />)}
         </div>
       </div>
     </Rnd>

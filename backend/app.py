@@ -1,430 +1,921 @@
 from __future__ import annotations
 
-from flask import Flask, jsonify, render_template, request
-from flask_cors import CORS
-import ast
-import io
 import contextlib
-import heapq
+import io
+import json
 import os
-from typing import Any, Dict, List, Tuple
+import sys
+import time
+import traceback
+from collections import deque
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
+
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+
+# ── Load .env file (simple parser, no dotenv package needed) ──────
+_ENV_PATH = os.path.join(os.path.dirname(__file__), ".env")
+if os.path.exists(_ENV_PATH):
+    with open(_ENV_PATH) as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _, _v = _line.partition("=")
+                _k = _k.strip()
+                _v = _v.strip()
+                if _k and _k not in os.environ:   # don't override real env vars
+                    os.environ[_k] = _v
 
 app = Flask(__name__)
 CORS(app)
 
-# ------------------------------
-# Graph helpers
-# ------------------------------
-graph_data: Dict[str, Dict[str, Any]] = {}  # {graph_name: {nodes: {}, links: [], ops: [], next_id: 1}}
+
+def _now_ms() -> int:
+    return int(time.time() * 1000)
 
 
-def reset_graph_state():
-    global graph_data
-    graph_data = {}
+def _safe_serialize(obj: Any, *, max_depth: int = 4, max_items: int = 80) -> Any:
+    def inner(o: Any, depth: int) -> Any:
+        if depth <= 0:
+            return "<max_depth>"
+
+        if o is None or isinstance(o, (bool, int, float, str)):
+            return o
+
+        if isinstance(o, (bytes, bytearray, memoryview)):
+            return f"<{type(o).__name__} {len(o)} bytes>"
+
+        if isinstance(o, (list, tuple, deque)):
+            out: List[Any] = []
+            for i, item in enumerate(o):
+                if i >= max_items:
+                    out.append(f"<+{len(o) - max_items} more>")
+                    break
+                out.append(inner(item, depth - 1))
+            return out if isinstance(o, (list, deque)) else tuple(out)
+
+        if isinstance(o, set):
+            items = list(o)
+            items.sort(key=lambda x: str(type(x)) + ":" + repr(x))
+            return [inner(x, depth - 1) for x in items[:max_items]]
+
+        if isinstance(o, dict):
+            out: Dict[str, Any] = {}
+            for i, (k, v) in enumerate(list(o.items())):
+                if i >= max_items:
+                    out["<truncated>"] = f"<+{len(o) - max_items} more>"
+                    break
+                out[str(inner(k, depth - 1))] = inner(v, depth - 1)
+            return out
+
+        if isinstance(o, Graph):
+            return {
+                "nodes": list(o.nodes.values()),
+                "links": list(o.links),
+            }
+
+        if isinstance(o, Heap):
+            return list(o.data)
+
+        return repr(o)
+
+    return inner(obj, max_depth)
 
 
-def ensure_graph(name: str):
-    if name not in graph_data:
-        graph_data[name] = {
-            "nodes": {},
-            "links": [],
-            "ops": [],
-            "next_id": 1,
+def _infer_list_op(before: Any, after: Any) -> str:
+    if not isinstance(before, list) or not isinstance(after, list):
+        return "mutate"
+    if len(after) == len(before) + 1 and after[: len(before)] == before:
+        return "append"
+    if len(after) == len(before) - 1 and before[: len(after)] == after:
+        return "pop"
+    if len(after) >= len(before) and all(x in after for x in before):
+        return "extend"
+    return "mutate"
+
+
+def _infer_dict_op(before: Any, after: Any) -> str:
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        return "mutate"
+    before_keys = set(before.keys())
+    after_keys = set(after.keys())
+    if after_keys - before_keys:
+        return "set"
+    if before_keys - after_keys:
+        return "del"
+    for k in after_keys:
+        if before.get(k) != after.get(k):
+            return "set"
+    return "mutate"
+
+
+def _find_names_for_object(frame, obj_id: int) -> List[str]:
+    names: List[str] = []
+    try:
+        for scope in (frame.f_locals, frame.f_globals):
+            for k, v in scope.items():
+                if isinstance(k, str) and id(v) == obj_id:
+                    names.append(k)
+    except Exception:
+        return names
+    # de-dupe while preserving order
+    seen = set()
+    out: List[str] = []
+    for n in names:
+        if n not in seen:
+            seen.add(n)
+            out.append(n)
+    return out
+
+
+@dataclass
+class TimelineEvent:
+    step: int
+    ts_ms: int
+    event: str
+    line: Optional[int] = None
+    func: Optional[str] = None
+    var: Optional[str] = None
+    object_id: Optional[int] = None
+    op: Optional[str] = None
+    before: Any = None
+    after: Any = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "step": self.step,
+            "ts_ms": self.ts_ms,
+            "event": self.event,
+            "line": self.line,
+            "func": self.func,
+            "var": self.var,
+            "object_id": self.object_id,
+            "op": self.op,
+            "before": self.before,
+            "after": self.after,
         }
 
 
-def add_graph_creation(name: str):
-    ensure_graph(name)
-    graph_data[name]["ops"].append(f"Graph created: '{name}'")
+class TimelineRecorder:
+    def __init__(self, *, max_steps: int = 50000) -> None:
+        self.events: List[TimelineEvent] = []
+        # A full snapshot of all tracked structures for each emitted step.
+        # This makes frontend scrubbing simple and accurate.
+        self.states: List[Dict[str, Any]] = []
+        self._step = 0
+        self._last_snapshot_by_id: Dict[int, Any] = {}
+        self._max_steps = max_steps
 
+    def _snapshot_structures(self, frame) -> List[Dict[str, Any]]:
+        merged: Dict[str, Any] = {}
+        try:
+            # globals first, locals override
+            for scope in (frame.f_globals, frame.f_locals):
+                for k, v in scope.items():
+                    if not isinstance(k, str):
+                        continue
+                    if k.startswith("__"):
+                        continue
+                    if isinstance(v, (list, dict, Heap, Graph)):
+                        merged[k] = v
+        except Exception:
+            return []
 
-def add_node(graph: str, node_val: Any):
-    ensure_graph(graph)
-    g = graph_data[graph]
-    if isinstance(node_val, (int, float)):
-        node_id = int(node_val)
-    else:
-        node_id = g["next_id"]
-        g["next_id"] += 1
-    g["nodes"][node_id] = {"id": node_id, "label": str(node_val)}
-    g["ops"].append(f"Graph '{graph}': Node added with value: {node_val}")
+        out: List[Dict[str, Any]] = []
+        for name, value in merged.items():
+            try:
+                if isinstance(value, Graph):
+                    kind = "graph"
+                elif isinstance(value, Heap):
+                    kind = "heap"
+                elif isinstance(value, dict):
+                    kind = "dict"
+                else:
+                    kind = "list"
+                out.append(
+                    {
+                        "name": name,
+                        "type": kind,
+                        "object_id": id(value),
+                        "payload": _safe_serialize(value),
+                    }
+                )
+            except Exception:
+                continue
 
+        # stable ordering for UI
+        out.sort(key=lambda s: (s.get("type", ""), s.get("name", "")))
+        return out
 
-def add_edge(graph: str, n1: Any, n2: Any):
-    ensure_graph(graph)
-    g = graph_data[graph]
-    try:
-        src = int(n1)
-        tgt = int(n2)
-    except Exception:
-        return
-    if src not in g["nodes"]:
-        g["nodes"][src] = {"id": src, "label": str(src)}
-    if tgt not in g["nodes"]:
-        g["nodes"][tgt] = {"id": tgt, "label": str(tgt)}
-    g["links"].append({"source": src, "target": tgt})
-    g["ops"].append(f"Graph '{graph}': Edge added between {n1} and {n2}")
+    def emit(
+        self,
+        *,
+        event: str,
+        line: Optional[int] = None,
+        func: Optional[str] = None,
+        var: Optional[str] = None,
+        object_id: Optional[int] = None,
+        op: Optional[str] = None,
+        before: Any = None,
+        after: Any = None,
+        frame=None,
+    ) -> None:
+        if self._step >= self._max_steps:
+            raise RuntimeError(f"Max steps exceeded ({self._max_steps}).")
+        self._step += 1
+        self.events.append(
+            TimelineEvent(
+                step=self._step,
+                ts_ms=_now_ms(),
+                event=event,
+                line=line,
+                func=func,
+                var=var,
+                object_id=object_id,
+                op=op,
+                before=before,
+                after=after,
+            )
+        )
 
-
-def remove_node(graph: str, node_val: Any):
-    ensure_graph(graph)
-    g = graph_data[graph]
-    try:
-        node_id = int(node_val)
-    except Exception:
-        return
-    g["nodes"].pop(node_id, None)
-    g["links"][:] = [l for l in g["links"] if l["source"] != node_id and l["target"] != node_id]
-    g["ops"].append(f"Graph '{graph}': Node removed with value: {node_val}")
-
-
-def remove_edge(graph: str, n1: Any, n2: Any):
-    ensure_graph(graph)
-    g = graph_data[graph]
-    try:
-        src = int(n1)
-        tgt = int(n2)
-    except Exception:
-        return
-    before = len(g["links"])
-    g["links"][:] = [l for l in g["links"] if not (l["source"] == src and l["target"] == tgt)]
-    if len(g["links"]) != before:
-        g["ops"].append(f"Graph '{graph}': Edge removed between {n1} and {n2}")
-
-
-def parse_graphs(code: str):
-    reset_graph_state()
-    tree = ast.parse(code)
-    graph_vars = set()
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign):
-            for target in node.targets:
-                if isinstance(target, ast.Name):
-                    if isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Attribute):
-                        if node.value.func.attr == "Graph" and isinstance(node.value.func.value, ast.Name):
-                            graph_vars.add(target.id)
-                            add_graph_creation(target.id)
-
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-            func_name = node.func.attr
-            graph_functions = {
-                "add_node",
-                "add_nodes_from",
-                "add_edge",
-                "add_edges_from",
-                "remove_node",
-                "remove_nodes_from",
-                "remove_edge",
-                "remove_edges_from",
+        # Also store a full snapshot for this step.
+        state_structures: List[Dict[str, Any]] = []
+        if frame is not None:
+            state_structures = self._snapshot_structures(frame)
+        self.states.append(
+            {
+                "step": self._step,
+                "line": line,
+                "func": func,
+                "event": event,
+                "structures": state_structures,
             }
-            if func_name not in graph_functions:
+        )
+
+    def snapshot_watchables(self, frame, *, line: Optional[int] = None) -> None:
+        # Compare local/global objects to detect mutations in watchable containers.
+        # This powers timeline replay without re-executing code.
+        watch: Dict[int, Tuple[str, Any]] = {}
+        try:
+            for scope in (frame.f_globals, frame.f_locals):
+                for k, v in scope.items():
+                    if not isinstance(k, str):
+                        continue
+                    if k.startswith("__"):
+                        continue
+                    if isinstance(v, (list, dict, Heap, Graph)):
+                        watch[id(v)] = (k, v)
+        except Exception:
+            return
+
+        event_line = line if line is not None else getattr(frame, "f_lineno", None)
+        event_func = getattr(frame.f_code, "co_name", None)
+
+        for obj_id, (name, obj) in watch.items():
+            current = _safe_serialize(obj)
+            prev = self._last_snapshot_by_id.get(obj_id)
+            if prev is None:
+                # Emit an init event so the frontend can render the initial state.
+                self.emit(
+                    event="mutation",
+                    line=event_line,
+                    func=event_func,
+                    var=name,
+                    object_id=obj_id,
+                    op="init",
+                    before=None,
+                    after=current,
+                    frame=frame,
+                )
+                self._last_snapshot_by_id[obj_id] = current
                 continue
-            if not isinstance(node.func.value, ast.Name):
+            if prev != current:
+                op = "mutate"
+                if isinstance(obj, list):
+                    op = _infer_list_op(prev, current)
+                elif isinstance(obj, dict):
+                    op = _infer_dict_op(prev, current)
+                self.emit(
+                    event="mutation",
+                    line=event_line,
+                    func=event_func,
+                    var=name,
+                    object_id=obj_id,
+                    op=op,
+                    before=prev,
+                    after=current,
+                    frame=frame,
+                )
+                self._last_snapshot_by_id[obj_id] = current
+
+
+class LoggedList(list):
+    def __init__(self, iterable=(), *, _recorder: Optional[TimelineRecorder] = None) -> None:
+        super().__init__(iterable)
+        self._recorder = _recorder
+
+    def _log(self, frame, op: str, before: Any, after: Any) -> None:
+        if not self._recorder:
+            return
+        obj_id = id(self)
+        names = _find_names_for_object(frame, obj_id) if frame else []
+        self._recorder.emit(
+            event="mutation",
+            line=getattr(frame, "f_lineno", None) if frame else None,
+            func=getattr(frame.f_code, "co_name", None) if frame else None,
+            var=(names[0] if names else None),
+            object_id=obj_id,
+            op=op,
+            before=before,
+            after=after,
+            frame=frame,
+        )
+
+    def append(self, x) -> None:
+        frame = sys._getframe(1)
+        before = _safe_serialize(list(self))
+        super().append(x)
+        after = _safe_serialize(list(self))
+        self._log(frame, "append", before, after)
+
+    def extend(self, it) -> None:
+        frame = sys._getframe(1)
+        before = _safe_serialize(list(self))
+        super().extend(it)
+        after = _safe_serialize(list(self))
+        self._log(frame, "extend", before, after)
+
+    def insert(self, i, x) -> None:
+        frame = sys._getframe(1)
+        before = _safe_serialize(list(self))
+        super().insert(i, x)
+        after = _safe_serialize(list(self))
+        self._log(frame, "insert", before, after)
+
+    def pop(self, i: int = -1):
+        frame = sys._getframe(1)
+        before = _safe_serialize(list(self))
+        out = super().pop(i)
+        after = _safe_serialize(list(self))
+        self._log(frame, "pop", before, after)
+        return out
+
+    def remove(self, x) -> None:
+        frame = sys._getframe(1)
+        before = _safe_serialize(list(self))
+        super().remove(x)
+        after = _safe_serialize(list(self))
+        self._log(frame, "remove", before, after)
+
+    def clear(self) -> None:
+        frame = sys._getframe(1)
+        before = _safe_serialize(list(self))
+        super().clear()
+        after = _safe_serialize(list(self))
+        self._log(frame, "clear", before, after)
+
+    def __setitem__(self, key, value) -> None:
+        frame = sys._getframe(1)
+        before = _safe_serialize(list(self))
+        super().__setitem__(key, value)
+        after = _safe_serialize(list(self))
+        self._log(frame, "setitem", before, after)
+
+    def __delitem__(self, key) -> None:
+        frame = sys._getframe(1)
+        before = _safe_serialize(list(self))
+        super().__delitem__(key)
+        after = _safe_serialize(list(self))
+        self._log(frame, "delitem", before, after)
+
+
+class LoggedDict(dict):
+    def __init__(self, *args, _recorder: Optional[TimelineRecorder] = None, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._recorder = _recorder
+
+    def _log(self, frame, op: str, before: Any, after: Any) -> None:
+        if not self._recorder:
+            return
+        obj_id = id(self)
+        names = _find_names_for_object(frame, obj_id) if frame else []
+        self._recorder.emit(
+            event="mutation",
+            line=getattr(frame, "f_lineno", None) if frame else None,
+            func=getattr(frame.f_code, "co_name", None) if frame else None,
+            var=(names[0] if names else None),
+            object_id=obj_id,
+            op=op,
+            before=before,
+            after=after,
+            frame=frame,
+        )
+
+    def __setitem__(self, key, value) -> None:
+        frame = sys._getframe(1)
+        before = _safe_serialize(dict(self))
+        super().__setitem__(key, value)
+        after = _safe_serialize(dict(self))
+        self._log(frame, "set", before, after)
+
+    def __delitem__(self, key) -> None:
+        frame = sys._getframe(1)
+        before = _safe_serialize(dict(self))
+        super().__delitem__(key)
+        after = _safe_serialize(dict(self))
+        self._log(frame, "del", before, after)
+
+    def pop(self, key, default=None):
+        frame = sys._getframe(1)
+        before = _safe_serialize(dict(self))
+        out = super().pop(key, default)
+        after = _safe_serialize(dict(self))
+        self._log(frame, "pop", before, after)
+        return out
+
+    def popitem(self):
+        frame = sys._getframe(1)
+        before = _safe_serialize(dict(self))
+        out = super().popitem()
+        after = _safe_serialize(dict(self))
+        self._log(frame, "popitem", before, after)
+        return out
+
+    def clear(self) -> None:
+        frame = sys._getframe(1)
+        before = _safe_serialize(dict(self))
+        super().clear()
+        after = _safe_serialize(dict(self))
+        self._log(frame, "clear", before, after)
+
+    def update(self, *args, **kwargs) -> None:
+        frame = sys._getframe(1)
+        before = _safe_serialize(dict(self))
+        super().update(*args, **kwargs)
+        after = _safe_serialize(dict(self))
+        self._log(frame, "update", before, after)
+
+    def setdefault(self, key, default=None):
+        frame = sys._getframe(1)
+        before = _safe_serialize(dict(self))
+        out = super().setdefault(key, default)
+        after = _safe_serialize(dict(self))
+        if before != after:
+            self._log(frame, "setdefault", before, after)
+        return out
+
+
+class Heap:
+    def __init__(self, iterable=(), *, _recorder: Optional[TimelineRecorder] = None) -> None:
+        import heapq
+
+        self.data = list(iterable)
+        self._recorder = _recorder
+        heapq.heapify(self.data)
+
+    def _log(self, frame, op: str, before: Any, after: Any) -> None:
+        if not self._recorder:
+            return
+        obj_id = id(self)
+        names = _find_names_for_object(frame, obj_id) if frame else []
+        self._recorder.emit(
+            event="mutation",
+            line=getattr(frame, "f_lineno", None) if frame else None,
+            func=getattr(frame.f_code, "co_name", None) if frame else None,
+            var=(names[0] if names else None),
+            object_id=obj_id,
+            op=op,
+            before=before,
+            after=after,
+            frame=frame,
+        )
+
+    def heappush(self, x) -> None:
+        import heapq
+
+        frame = sys._getframe(1)
+        before = _safe_serialize(list(self.data))
+        heapq.heappush(self.data, x)
+        after = _safe_serialize(list(self.data))
+        self._log(frame, "heappush", before, after)
+
+    def heappop(self):
+        import heapq
+
+        frame = sys._getframe(1)
+        before = _safe_serialize(list(self.data))
+        out = heapq.heappop(self.data)
+        after = _safe_serialize(list(self.data))
+        self._log(frame, "heappop", before, after)
+        return out
+
+    def heapify(self) -> None:
+        import heapq
+
+        frame = sys._getframe(1)
+        before = _safe_serialize(list(self.data))
+        heapq.heapify(self.data)
+        after = _safe_serialize(list(self.data))
+        self._log(frame, "heapify", before, after)
+
+    def heapreplace(self, x):
+        import heapq
+
+        frame = sys._getframe(1)
+        before = _safe_serialize(list(self.data))
+        out = heapq.heapreplace(self.data, x)
+        after = _safe_serialize(list(self.data))
+        self._log(frame, "heapreplace", before, after)
+        return out
+
+    def heappushpop(self, x):
+        import heapq
+
+        frame = sys._getframe(1)
+        before = _safe_serialize(list(self.data))
+        out = heapq.heappushpop(self.data, x)
+        after = _safe_serialize(list(self.data))
+        self._log(frame, "heappushpop", before, after)
+        return out
+
+
+class Graph:
+    def __init__(self, *, _recorder: Optional[TimelineRecorder] = None) -> None:
+        self.nodes: Dict[int, Dict[str, Any]] = {}
+        self.links: List[Dict[str, int]] = []
+        self._next_id = 1
+        self._node_key_to_id: Dict[Any, int] = {}
+        self._recorder = _recorder
+
+    def _resolve_node_id(self, value: Any, *, create: bool) -> Optional[int]:
+        # Prefer numeric IDs when possible.
+        if isinstance(value, (int, float)):
+            try:
+                node_id = int(value)
+                # Treat floats like 1.0 as 1, but keep label as original.
+                return node_id
+            except Exception:
+                pass
+
+        if value in self._node_key_to_id:
+            return self._node_key_to_id[value]
+        if not create:
+            return None
+        node_id = self._next_id
+        self._next_id += 1
+        self._node_key_to_id[value] = node_id
+        return node_id
+
+    def _ensure_node(self, value: Any) -> int:
+        node_id = self._resolve_node_id(value, create=True)
+        assert node_id is not None
+        if node_id not in self.nodes:
+            self.nodes[node_id] = {"id": node_id, "label": str(value)}
+        return node_id
+
+    def _log(self, frame, op: str, before: Any, after: Any) -> None:
+        if not self._recorder:
+            return
+        obj_id = id(self)
+        names = _find_names_for_object(frame, obj_id) if frame else []
+        self._recorder.emit(
+            event="mutation",
+            line=getattr(frame, "f_lineno", None) if frame else None,
+            func=getattr(frame.f_code, "co_name", None) if frame else None,
+            var=(names[0] if names else None),
+            object_id=obj_id,
+            op=op,
+            before=before,
+            after=after,
+            frame=frame,
+        )
+
+    def _snapshot(self) -> Any:
+        return _safe_serialize({"nodes": list(self.nodes.values()), "links": list(self.links)})
+
+    def add_node(self, value: Any = None, *args, **kwargs) -> int:
+        frame = sys._getframe(1)
+        before = self._snapshot()
+        node_id = self._ensure_node(value)
+        after = self._snapshot()
+        self._log(frame, "add_node", before, after)
+        return node_id
+
+    def add_edge(self, src: Any, tgt: Any, *args, **kwargs) -> None:
+        frame = sys._getframe(1)
+        before = self._snapshot()
+        s = self._ensure_node(src)
+        t = self._ensure_node(tgt)
+        self.links.append({"source": s, "target": t})
+        after = self._snapshot()
+        self._log(frame, "add_edge", before, after)
+
+    def add_nodes_from(self, nodes, *args, **kwargs) -> None:
+        for n in list(nodes):
+            self.add_node(n)
+
+    def add_edges_from(self, edges, *args, **kwargs) -> None:
+        for e in list(edges):
+            if isinstance(e, (tuple, list)) and len(e) >= 2:
+                self.add_edge(e[0], e[1])
+
+    def remove_node(self, node: Any, *args, **kwargs) -> None:
+        frame = sys._getframe(1)
+        before = self._snapshot()
+        n = self._resolve_node_id(node, create=False)
+        if n is not None:
+            self.nodes.pop(n, None)
+            self.links[:] = [l for l in self.links if l["source"] != n and l["target"] != n]
+        after = self._snapshot()
+        self._log(frame, "remove_node", before, after)
+
+    def remove_nodes_from(self, nodes, *args, **kwargs) -> None:
+        for n in list(nodes):
+            try:
+                self.remove_node(n)
+            except Exception:
                 continue
-            graph = node.func.value.id
 
-            if func_name == "add_node" and node.args:
+    def remove_edge(self, src: Any, tgt: Any, *args, **kwargs) -> None:
+        frame = sys._getframe(1)
+        before = self._snapshot()
+        s = self._resolve_node_id(src, create=False)
+        t = self._resolve_node_id(tgt, create=False)
+        if s is not None and t is not None:
+            self.links[:] = [l for l in self.links if not (l["source"] == s and l["target"] == t)]
+        after = self._snapshot()
+        self._log(frame, "remove_edge", before, after)
+
+    def remove_edges_from(self, edges, *args, **kwargs) -> None:
+        for e in list(edges):
+            if isinstance(e, (tuple, list)) and len(e) >= 2:
                 try:
-                    node_val = ast.literal_eval(node.args[0])
-                    add_node(graph, node_val)
+                    self.remove_edge(e[0], e[1])
                 except Exception:
-                    pass
+                    continue
 
-            elif func_name == "add_nodes_from" and node.args:
-                list_nodes = node.args[0]
-                if isinstance(list_nodes, ast.List):
-                    for elt in list_nodes.elts:
-                        try:
-                            node_val = ast.literal_eval(elt)
-                            add_node(graph, node_val)
-                        except Exception:
-                            pass
+    def neighbors(self, node: Any) -> List[Any]:
+        """Return neighbors of a given node."""
+        node_id = self._resolve_node_id(node, create=False)
+        if node_id is None:
+            return []
+        neighbors = []
+        for link in self.links:
+            if link["source"] == node_id:
+                for nid, node_data in self.nodes.items():
+                    if nid == link["target"]:
+                        neighbors.append(self._node_id_to_value(nid))
+            elif link["target"] == node_id:
+                for nid, node_data in self.nodes.items():
+                    if nid == link["source"]:
+                        neighbors.append(self._node_id_to_value(nid))
+        return neighbors
 
-            elif func_name == "add_edge" and len(node.args) >= 2:
-                try:
-                    n1 = ast.literal_eval(node.args[0])
-                    n2 = ast.literal_eval(node.args[1])
-                    add_edge(graph, n1, n2)
-                except Exception:
-                    pass
-
-            elif func_name == "add_edges_from" and node.args:
-                edge_list = node.args[0]
-                if isinstance(edge_list, ast.List):
-                    for edge_ast in edge_list.elts:
-                        if isinstance(edge_ast, ast.Tuple) and len(edge_ast.elts) == 2:
-                            try:
-                                n1 = ast.literal_eval(edge_ast.elts[0])
-                                n2 = ast.literal_eval(edge_ast.elts[1])
-                                add_edge(graph, n1, n2)
-                            except Exception:
-                                pass
-
-            elif func_name == "remove_edge" and len(node.args) >= 2:
-                try:
-                    n1 = ast.literal_eval(node.args[0])
-                    n2 = ast.literal_eval(node.args[1])
-                    remove_edge(graph, n1, n2)
-                except Exception:
-                    pass
-
-            elif func_name == "remove_edges_from" and node.args:
-                edge_list = node.args[0]
-                if isinstance(edge_list, ast.List):
-                    for edge_ast in edge_list.elts:
-                        if isinstance(edge_ast, ast.Tuple) and len(edge_ast.elts) == 2:
-                            try:
-                                n1 = ast.literal_eval(edge_ast.elts[0])
-                                n2 = ast.literal_eval(edge_ast.elts[1])
-                                remove_edge(graph, n1, n2)
-                            except Exception:
-                                pass
-
-            elif func_name == "remove_node" and node.args:
-                try:
-                    n = ast.literal_eval(node.args[0])
-                    remove_node(graph, n)
-                except Exception:
-                    pass
-
-            elif func_name == "remove_nodes_from" and node.args:
-                list_nodes = node.args[0]
-                if isinstance(list_nodes, ast.List):
-                    for elt in list_nodes.elts:
-                        try:
-                            n = ast.literal_eval(elt)
-                            remove_node(graph, n)
-                        except Exception:
-                            pass
+    def _node_id_to_value(self, node_id: int) -> Any:
+        """Convert a node ID back to its original value."""
+        for value, nid in self._node_key_to_id.items():
+            if nid == node_id:
+                return value
+        # For numeric nodes, return the ID itself
+        return node_id
 
 
-# ------------------------------
-# Heap helpers
-# ------------------------------
-heap_ops: List[str] = []
-heap_data: Dict[str, List[Any]] = {}
+class _NetworkXShim:
+    """Minimal networkx-like shim so user code `import networkx as nx` works.
+
+    This is intentionally not full NetworkX.
+    Supported: Graph/DiGraph/MultiGraph/MultiDiGraph constructors.
+    """
+
+    def __init__(self, recorder: TimelineRecorder) -> None:
+        self._recorder = recorder
+
+        def graph_factory(*args, **kwargs):
+            return Graph(_recorder=self._recorder)
+
+        self.Graph = graph_factory
+        self.DiGraph = graph_factory
+        self.MultiGraph = graph_factory
+        self.MultiDiGraph = graph_factory
+
+    def __getattr__(self, name: str):
+        raise AttributeError(
+            f"networkx shim only supports Graph/DiGraph/MultiGraph/MultiDiGraph; missing '{name}'"
+        )
 
 
-def reset_heap_state():
-    heap_ops.clear()
-    heap_data.clear()
+def _make_safe_builtins(
+    allowed_imports: Optional[set[str]] = None,
+    *,
+    import_overrides: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    if allowed_imports is None:
+        allowed_imports = {"math", "heapq", "networkx"}
+
+    def limited_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if import_overrides and name in import_overrides:
+            return import_overrides[name]
+        root = name.split(".", 1)[0]
+        if root not in allowed_imports:
+            raise ImportError(f"import of '{root}' is disabled")
+        return __import__(name, globals, locals, fromlist, level)
+
+    # Intentionally small set; add more as needed.
+    safe: Dict[str, Any] = {
+        "__import__": limited_import,
+        "print": print,
+        "range": range,
+        "len": len,
+        "enumerate": enumerate,
+        "int": int,
+        "float": float,
+        "str": str,
+        "bool": bool,
+        "list": list,
+        "dict": dict,
+        "set": set,
+        "tuple": tuple,
+        "min": min,
+        "max": max,
+        "sum": sum,
+        "abs": abs,
+        "all": all,
+        "any": any,
+        "zip": zip,
+        "sorted": sorted,
+        "reversed": reversed,
+        "Exception": Exception,
+        "ValueError": ValueError,
+        "TypeError": TypeError,
+    }
+    return safe
 
 
-def heap_parse(code: str):
-    reset_heap_state()
-    tree = ast.parse(code)
-    heap_vars = set()
+def _trace_factory(recorder: TimelineRecorder, *, filename: str):
+    last_executed_line_by_frame: Dict[int, Optional[int]] = {}
 
-    class Visitor(ast.NodeVisitor):
-        def visit_Assign(self, node):
-            for target in node.targets:
-                if isinstance(target, ast.Name):
-                    if isinstance(node.value, ast.List) and not node.value.elts:
-                        heap_vars.add(target.id)
-                        heap_data[target.id] = []
-                        heap_ops.append(f"Heap '{target.id}' created.")
-            self.generic_visit(node)
+    def tracer(frame, event: str, arg):
+        if frame.f_code.co_filename != filename:
+            return tracer
 
-        def visit_Call(self, node):
-            func_name = None
-            if isinstance(node.func, ast.Attribute):
-                func_name = node.func.attr
-            elif isinstance(node.func, ast.Name):
-                func_name = node.func.id
-            if func_name not in {"heappush", "heappop", "heapify", "heapreplace", "heappushpop"}:
-                return
-            if not node.args or not isinstance(node.args[0], ast.Name):
-                return
-            heap_name = node.args[0].id
-            if heap_name not in heap_vars:
-                return
-            if heap_name not in heap_data:
-                heap_data[heap_name] = []
-            try:
-                if func_name == "heappush" and len(node.args) > 1:
-                    val = ast.literal_eval(node.args[1])
-                    heapq.heappush(heap_data[heap_name], val)
-                    heap_ops.append(f"Heap '{heap_name}': pushed {val}.")
-                elif func_name == "heappop":
-                    if heap_data[heap_name]:
-                        val = heapq.heappop(heap_data[heap_name])
-                        heap_ops.append(f"Heap '{heap_name}': popped {val}.")
-                    else:
-                        heap_ops.append(f"Heap '{heap_name}': is empty.")
-                elif func_name == "heapify":
-                    heapq.heapify(heap_data[heap_name])
-                    heap_ops.append(f"Heap '{heap_name}': heapified.")
-                elif func_name == "heapreplace" and len(node.args) > 1:
-                    val = ast.literal_eval(node.args[1])
-                    if heap_data[heap_name]:
-                        old = heapq.heapreplace(heap_data[heap_name], val)
-                        heap_ops.append(f"Heap '{heap_name}': replace {old} with {val}.")
-                    else:
-                        heap_ops.append(f"Heap '{heap_name}': cannot replace on empty heap.")
-                elif func_name == "heappushpop" and len(node.args) > 1:
-                    val = ast.literal_eval(node.args[1])
-                    removed = heapq.heappushpop(heap_data[heap_name], val)
-                    heap_ops.append(
-                        f"Heap '{heap_name}': pushpop {val} (removed {removed}) → {heap_data[heap_name]}."
-                    )
-            except Exception as exc:  # best-effort logging
-                heap_ops.append(f"Heap '{heap_name}': error processing {func_name}: {exc}")
-            self.generic_visit(node)
+        if event == "call":
+            last_executed_line_by_frame[id(frame)] = None
+            recorder.emit(event="call", line=frame.f_lineno, func=frame.f_code.co_name, frame=frame)
+        elif event == "line":
+            # NOTE: CPython fires 'line' events *before* executing the line.
+            # That means the current frame state reflects effects of the *previous executed* line.
+            # We attribute container init/mutations to that previous executed line so blank lines
+            # don't shift events down (e.g. arr2 init showing at line 5).
+            prev_line = last_executed_line_by_frame.get(id(frame))
+            recorder.snapshot_watchables(frame, line=prev_line)
+            recorder.emit(event="line", line=frame.f_lineno, func=frame.f_code.co_name, frame=frame)
+            last_executed_line_by_frame[id(frame)] = frame.f_lineno
+        elif event == "return":
+            # Snapshot once more at function/module exit so assignments on the last
+            # executed line (no next 'line' event) still produce init/mutation events.
+            prev_line = last_executed_line_by_frame.get(id(frame), frame.f_lineno)
+            recorder.snapshot_watchables(frame, line=prev_line)
+            recorder.emit(event="return", line=frame.f_lineno, func=frame.f_code.co_name, frame=frame)
+            last_executed_line_by_frame.pop(id(frame), None)
+        elif event == "exception":
+            # Same idea as 'return': capture final state even when aborting.
+            prev_line = last_executed_line_by_frame.get(id(frame), getattr(frame, "f_lineno", None))
+            recorder.snapshot_watchables(frame, line=prev_line)
+        return tracer
 
-    Visitor().visit(tree)
+    return tracer
 
 
-# ------------------------------
-# List helpers (simple stack-like tracking)
-# ------------------------------
-list_ops: Dict[str, List[str]] = {}
-list_data: Dict[str, List[Any]] = {}
+def _collect_structures(final_globals: Dict[str, Any]) -> List[Dict[str, Any]]:
+    structures: List[Dict[str, Any]] = []
+    for name, value in final_globals.items():
+        if name.startswith("__"):
+            continue
+        if isinstance(value, Graph):
+            structures.append(
+                {
+                    "name": name,
+                    "type": "graph",
+                    "object_id": id(value),
+                    "payload": {
+                        "nodes": list(value.nodes.values()),
+                        "links": list(value.links),
+                    },
+                }
+            )
+        elif isinstance(value, Heap):
+            structures.append(
+                {
+                    "name": name,
+                    "type": "heap",
+                    "object_id": id(value),
+                    "payload": list(value.data),
+                }
+            )
+        elif isinstance(value, list):
+            structures.append(
+                {
+                    "name": name,
+                    "type": "list",
+                    "object_id": id(value),
+                    "payload": _safe_serialize(value),
+                }
+            )
+        elif isinstance(value, dict):
+            structures.append(
+                {
+                    "name": name,
+                    "type": "dict",
+                    "object_id": id(value),
+                    "payload": _safe_serialize(value),
+                }
+            )
+    return structures
 
 
-def reset_list_state():
-    list_ops.clear()
-    list_data.clear()
+def _worker_run_code(payload: Dict[str, Any], out_queue) -> None:
+    code: str = payload.get("code", "")
+    timeout_ms: int = int(payload.get("timeout_ms", 2000))
+    max_steps: int = int(payload.get("max_steps", 50000))
+    filename = "<user_code>"
+    recorder = TimelineRecorder(max_steps=max_steps)
 
-
-def list_parse(code: str):
-    reset_list_state()
-    tree = ast.parse(code)
-    list_vars = set()
-
-    class Visitor(ast.NodeVisitor):
-        def visit_Assign(self, node):
-            if isinstance(node.value, ast.List):
-                for target in node.targets:
-                    if isinstance(target, ast.Name):
-                        name = target.id
-                        list_vars.add(name)
-                        list_data[name] = [ast.literal_eval(elt) for elt in node.value.elts]
-                        list_ops[name] = [f"Initialized with {list_data[name]}"]
-            self.generic_visit(node)
-
-        def visit_Call(self, node):
-            if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
-                var = node.func.value.id
-                method = node.func.attr
-                if var in list_vars:
-                    ops = list_ops.setdefault(var, [])
-                    try:
-                        if method == "append" and node.args:
-                            val = ast.literal_eval(node.args[0])
-                            list_data[var].append(val)
-                            ops.append(f"append({val})")
-                        elif method == "pop":
-                            if list_data[var]:
-                                val = list_data[var].pop()
-                                ops.append(f"pop() -> {val}")
-                            else:
-                                ops.append("pop() on empty list")
-                    except Exception:
-                        ops.append(f"{method}(...) (unresolved)")
-            self.generic_visit(node)
-
-    Visitor().visit(tree)
-
-
-# ------------------------------
-# Dict helpers (basic literal + item tracking)
-# ------------------------------
-dict_ops: Dict[str, List[str]] = {}
-dict_data: Dict[str, Dict[Any, Any]] = {}
-
-
-def reset_dict_state():
-    dict_ops.clear()
-    dict_data.clear()
-
-
-def dict_parse(code: str):
-    reset_dict_state()
-    tree = ast.parse(code)
-    dict_vars = set()
-
-    class Visitor(ast.NodeVisitor):
-        def visit_Assign(self, node):
-            # d = {"a":1}
-            if isinstance(node.value, ast.Dict):
-                for target in node.targets:
-                    if isinstance(target, ast.Name):
-                        name = target.id
-                        dict_vars.add(name)
-                        dict_data[name] = {self._get_key(k): self._get_val(v) for k, v in zip(node.value.keys, node.value.values)}
-                        dict_ops[name] = ["initialized"]
-            # d[key] = value
-            for target in node.targets:
-                if isinstance(target, ast.Subscript) and isinstance(target.value, ast.Name):
-                    name = target.value.id
-                    if name in dict_vars:
-                        key = self._get_key(target.slice)
-                        value = self._get_val(node.value)
-                        dict_data[name][key] = value
-                        dict_ops.setdefault(name, []).append(f"set[{key}]={value}")
-            self.generic_visit(node)
-
-        def visit_Call(self, node):
-            if not (isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name)):
-                return
-            name = node.func.value.id
-            method = node.func.attr
-            if name not in dict_vars:
-                return
-            ops = dict_ops.setdefault(name, [])
-            if method == "pop" and node.args:
-                key = self._get_val(node.args[0])
-                dict_data[name].pop(key, None)
-                ops.append(f"pop({key})")
-            elif method == "get" and node.args:
-                key = self._get_val(node.args[0])
-                ops.append(f"get({key})")
-            elif method == "update" and node.args:
-                try:
-                    payload = self._get_val(node.args[0])
-                    if isinstance(payload, dict):
-                        dict_data[name].update(payload)
-                        ops.append(f"update({payload})")
-                except Exception:
-                    ops.append("update(...)")
-            self.generic_visit(node)
-
-        def _get_key(self, node):
-            try:
-                return ast.literal_eval(node)
-            except Exception:
-                return getattr(node, "id", str(node))
-
-        def _get_val(self, node):
-            try:
-                return ast.literal_eval(node)
-            except Exception:
-                if isinstance(node, ast.Name):
-                    return node.id
-                if hasattr(ast, "unparse"):
-                    return ast.unparse(node)
-                return str(node)
-
-    Visitor().visit(tree)
-
-
-# ------------------------------
-# Execution helper
-# ------------------------------
-
-def execute_code(code: str):
-    output = ""
+    start = time.time()
+    stdout = io.StringIO()
     status = "success"
-    f = io.StringIO()
+    error: Optional[str] = None
+
+    # Provide a shim so `import networkx as nx` works even if networkx isn't installed.
+    safe_builtins = _make_safe_builtins(import_overrides={"networkx": _NetworkXShim(recorder)})
+    user_globals: Dict[str, Any] = {
+        "__builtins__": safe_builtins,
+        "Graph": lambda: Graph(_recorder=recorder),
+        "Heap": lambda it=(): Heap(it, _recorder=recorder),
+        "List": lambda it=(): LoggedList(it, _recorder=recorder),
+        "Dict": lambda *a, **kw: LoggedDict(*a, _recorder=recorder, **kw),
+    }
+
     try:
-        compiled = compile(code, "<string>", "exec")
-        with contextlib.redirect_stdout(f):
-            exec(compiled, {})
-        output = f.getvalue()
-    except Exception as exc:
-        status = str(exc)
-    return {"status": status, "output": output}
+        compiled = compile(code, filename, "exec")
+        tracer = _trace_factory(recorder, filename=filename)
+        sys.settrace(tracer)
+        with contextlib.redirect_stdout(stdout):
+            exec(compiled, user_globals, user_globals)
+    except BaseException as exc:
+        status = "error"
+        error = f"{type(exc).__name__}: {exc}"
+        recorder.emit(event="exception", line=None, func=None, op=error, frame=None)
+    finally:
+        sys.settrace(None)
+
+    elapsed_ms = int((time.time() - start) * 1000)
+    if elapsed_ms > timeout_ms:
+        status = "timeout"
+        error = f"Timeout after {timeout_ms}ms"
+
+    result = {
+        "status": status,
+        "output": stdout.getvalue(),
+        "error": error,
+        "timeline": [e.to_dict() for e in recorder.events],
+        "timeline_states": recorder.states,
+        "structures": _collect_structures(user_globals),
+    }
+    out_queue.put(result)
+
+
+def run_code_with_timeline(code: str, *, timeout_ms: int = 2000) -> Dict[str, Any]:
+    import multiprocessing
+
+    ctx = multiprocessing.get_context("spawn")
+    q = ctx.Queue()
+    p = ctx.Process(target=_worker_run_code, args=({"code": code, "timeout_ms": timeout_ms}, q))
+    p.daemon = True
+    p.start()
+    p.join(timeout_ms / 1000.0)
+    if p.is_alive():
+        p.terminate()
+        p.join(0.25)
+        return {
+            "status": "timeout",
+            "output": "",
+            "error": f"Timeout after {timeout_ms}ms",
+            "timeline": [],
+            "timeline_states": [],
+            "structures": [],
+        }
+    try:
+        return q.get_nowait()
+    except Exception:
+        return {
+            "status": "error",
+            "output": "",
+            "error": "No result from sandbox process",
+            "timeline": [],
+            "timeline_states": [],
+            "structures": [],
+        }
 
 
 # ------------------------------
@@ -444,53 +935,15 @@ def run_code():
         if not isinstance(code, str) or not code.strip():
             return jsonify({"status": "error", "error": "No code provided"}), 400
 
-        # Parse structures
-        parse_graphs(code)
-        heap_parse(code)
-        list_parse(code)
-        dict_parse(code)
-
-        # Execute code
-        exec_result = execute_code(code)
-
-        structures = []
-        for graph_name, g in graph_data.items():
-            if g["nodes"] or g["links"]:
-                structures.append({
-                    "name": graph_name,
-                    "type": "graph",
-                    "payload": {
-                        "nodes": list(g["nodes"].values()),
-                        "links": g["links"],
-                    },
-                    "operations": g["ops"],
-                })
-        for name, values in list_data.items():
-            structures.append({
-                "name": name,
-                "type": "list",
-                "payload": values,
-                "operations": list_ops.get(name, []),
-            })
-        for name, values in heap_data.items():
-            structures.append({
-                "name": name,
-                "type": "heap",
-                "payload": values,
-                "operations": heap_ops,
-            })
-        for name, d in dict_data.items():
-            structures.append({
-                "name": name,
-                "type": "dict",
-                "payload": d,
-                "operations": dict_ops.get(name, []),
-            })
+        result = run_code_with_timeline(code, timeout_ms=int(payload.get("timeout_ms", 2000)))
 
         response = {
-            "status": exec_result["status"],
-            "output": exec_result["output"],
-            "structures": structures,
+            "status": result.get("status", "error"),
+            "output": result.get("output", ""),
+            "error": result.get("error"),
+            "structures": result.get("structures", []),
+            "timeline": result.get("timeline", []),
+            "timeline_states": result.get("timeline_states", []),
         }
         return jsonify(response)
     except Exception as exc:
@@ -500,6 +953,71 @@ def run_code():
 @app.route("/health")
 def health():
     return {"ok": True}
+
+
+# ═══════════════════════════════════════════════════════════════
+#   AI CHAT & SESSION ENDPOINTS
+# ═══════════════════════════════════════════════════════════════
+
+_ai_chat = None
+
+
+def _get_ai_chat():
+    """Lazily create the AI chat client."""
+    global _ai_chat
+    if _ai_chat is None:
+        from ai_orchestrator import AIChat
+        _ai_chat = AIChat()
+    return _ai_chat
+
+
+@app.route("/api/ai/chat", methods=["POST"])
+def ai_chat():
+    """
+    Streaming AI chat endpoint.
+    Accepts: { messages: [{role, content}], code?, output?, structures? }
+    Returns SSE stream with text_delta, done, and error events.
+    """
+    from flask import stream_with_context
+
+    payload = request.get_json(force=True)
+    messages = payload.get("messages", [])
+    if not messages:
+        return jsonify({"error": "No messages provided"}), 400
+
+    try:
+        chat = _get_ai_chat()
+    except Exception as exc:
+        def _err():
+            yield f"data: {json.dumps({'type': 'error', 'error': str(exc)})}\n\n"
+        return app.response_class(
+            _err(),
+            mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    code = payload.get("code", "")
+    output = payload.get("output", "")
+    structures = payload.get("structures", [])
+
+    def generate():
+        try:
+            for event in chat.stream_chat(messages, code=code, output=output, structures=structures):
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as stream_exc:
+            yield f"data: {json.dumps({'type': 'error', 'error': str(stream_exc)})}\n\n"
+
+    return app.response_class(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 
 
 if __name__ == "__main__":

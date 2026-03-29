@@ -42,44 +42,75 @@ const Graph: React.FC<GraphProps> = ({ width = 800, height = 600, onGraphReady }
   const linksRef = useRef<GraphLink[]>([]);
   const nextIdRef = useRef(1);
   const simulationRef = useRef<d3.Simulation<GraphNode, GraphLink> | null>(null);
+  const clipIdRef = useRef(`graph-clip-${Math.random().toString(36).slice(2)}`);
 
   useEffect(() => {
     if (!svgRef.current) return;
+    if (width <= 0 || height <= 0) return;
 
     const svg = d3.select(svgRef.current);
-    const R = 20;
+    const R = 24;
     const PAD = 4;
     const jitter = (n = 10) => (Math.random() - 0.5) * 2 * n;
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    const clipId = clipIdRef.current;
+    const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+    const minX = R + PAD;
+    const maxX = width - R - PAD;
+    const minY = R + PAD;
+    const maxY = height - R - PAD;
+    
+    // Simple gray color scheme
+    const colors = {
+      node: isDarkMode ? '#6b7280' : '#9ca3af',
+      link: isDarkMode ? '#4b5563' : '#d1d5db',
+      stroke: isDarkMode ? '#9ca3af' : '#6b7280',
+      text: '#ffffff',
+    };
 
     // Clear existing content
     svg.selectAll("*").remove();
 
+    // Clip path to keep nodes inside the panel bounds
+    svg.append("defs")
+      .append("clipPath")
+      .attr("id", clipId)
+      .append("rect")
+      .attr("x", 0)
+      .attr("y", 0)
+      .attr("width", width)
+      .attr("height", height);
+
     // Create simulation
-    const simulation = d3
+    const simulation = d3 
       .forceSimulation<GraphNode>(nodesRef.current)
       .velocityDecay(0.35)
       .force("link", d3.forceLink<GraphNode, GraphLink>(linksRef.current).id((d) => d.id).distance(80))
-      .force("charge", d3.forceManyBody<GraphNode>().strength(-120))
+      .force("charge", d3.forceManyBody<GraphNode>().strength(-150))
       .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("x", d3.forceX(width / 2).strength(0.05))
-      .force("y", d3.forceY(height / 2).strength(0.05));
+      .force("x", d3.forceX(width / 2).strength(0.02))
+      .force("y", d3.forceY(height / 2).strength(0.02));
 
     simulationRef.current = simulation;
 
     // Container groups
-    const linkG = svg.append("g").attr("class", "links");
-    const nodeG = svg.append("g").attr("class", "nodes");
+    const linkG = svg.append("g").attr("class", "links").attr("clip-path", `url(#${clipId})`);
+    const nodeG = svg.append("g").attr("class", "nodes").attr("clip-path", `url(#${clipId})`);
 
     // Drag behavior
     function drag(sim: d3.Simulation<GraphNode, GraphLink>) {
       function started(event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>, d: GraphNode) {
         if (!event.active) sim.alphaTarget(0.3).restart();
-        d.fx = d.x;
-        d.fy = d.y;
+        const clampedX = clamp(event.x, minX, maxX);
+        const clampedY = clamp(event.y, minY, maxY);
+        d.fx = clampedX;
+        d.fy = clampedY;
       }
       function dragged(event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>, d: GraphNode) {
-        d.fx = event.x;
-        d.fy = event.y;
+        const clampedX = clamp(event.x, minX, maxX);
+        const clampedY = clamp(event.y, minY, maxY);
+        d.fx = clampedX;
+        d.fy = clampedY;
       }
       function ended(event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>, d: GraphNode) {
         if (!event.active) sim.alphaTarget(0);
@@ -100,8 +131,8 @@ const Graph: React.FC<GraphProps> = ({ width = 800, height = 600, onGraphReady }
         .enter()
         .append("line")
         .attr("class", "link")
-        .attr("stroke", "#999")
-        .attr("stroke-width", 2)
+        .attr("stroke", colors.link)
+        .attr("stroke-width", 1.5)
         .merge(link);
 
       // NODES
@@ -115,45 +146,28 @@ const Graph: React.FC<GraphProps> = ({ width = 800, height = 600, onGraphReady }
         .append("circle")
         .attr("class", "node-circle")
         .attr("r", R)
-        .attr("fill", "#69b3a2")
-        .attr("stroke", "#333")
-        .attr("stroke-width", 2);
+        .attr("fill", colors.node)
+        .attr("stroke", colors.stroke)
+        .attr("stroke-width", 1.5);
 
       // label
       nodeEnter
         .append("text")
         .attr("class", "node-label")
-        .attr("dy", 5)
+        .attr("dy", 4)
         .attr("text-anchor", "middle")
-        .attr("fill", "white")
         .attr("font-size", "12px")
-        .attr("font-weight", "bold")
+        .attr("font-family", "'JetBrains Mono', 'SF Mono', 'Fira Code', monospace")
+        .attr("font-weight", "500")
         .text((d) => d.label);
 
-      // delete X
-      nodeEnter
-        .append("text")
-        .attr("class", "delete-btn")
-        .attr("x", 15)
-        .attr("y", -15)
-        .attr("text-anchor", "middle")
-        .attr("fill", "red")
-        .attr("font-size", "16px")
-        .attr("font-weight", "bold")
-        .attr("cursor", "pointer")
-        .text("✕")
-        .on("click", (event, d) => {
-          api.deleteNode(d.id);
-          event.stopPropagation();
-        });
+      node.merge(nodeEnter)
+        .select<SVGTextElement>("text.node-label")
+        .attr("fill", colors.text);
 
-      node.merge(nodeEnter);
-
-      // RESTART SIMULATION
+      // Update simulation
       simulation.nodes(nodesRef.current);
       (simulation.force("link") as d3.ForceLink<GraphNode, GraphLink>).links(linksRef.current);
-      simulation.alpha(1).restart();
-
       simulation.on("tick", () => {
         linkG
           .selectAll<SVGLineElement, GraphLink>("line.link")
@@ -165,29 +179,14 @@ const Graph: React.FC<GraphProps> = ({ width = 800, height = 600, onGraphReady }
         nodeG
           .selectAll<SVGGElement, GraphNode>("g.node-group")
           .each(function (d) {
-            const minX = R + PAD,
-              maxX = width - R - PAD;
-            const minY = R + PAD,
-              maxY = height - R - PAD;
-            if (d.x !== undefined && d.x < minX) {
-              d.x = minX;
-              d.vx = 0;
-            }
-            if (d.x !== undefined && d.x > maxX) {
-              d.x = maxX;
-              d.vx = 0;
-            }
-            if (d.y !== undefined && d.y < minY) {
-              d.y = minY;
-              d.vy = 0;
-            }
-            if (d.y !== undefined && d.y > maxY) {
-              d.y = maxY;
-              d.vy = 0;
-            }
+            if (d.x !== undefined && d.x < minX) { d.x = minX; d.vx = 0; }
+            if (d.x !== undefined && d.x > maxX) { d.x = maxX; d.vx = 0; }
+            if (d.y !== undefined && d.y < minY) { d.y = minY; d.vy = 0; }
+            if (d.y !== undefined && d.y > maxY) { d.y = maxY; d.vy = 0; }
           })
           .attr("transform", (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
       });
+      simulation.alpha(1).restart();
     }
 
     // API
@@ -372,7 +371,14 @@ const Graph: React.FC<GraphProps> = ({ width = 800, height = 600, onGraphReady }
     };
   }, [width, height, onGraphReady]);
 
-  return <svg ref={svgRef} width={width} height={height} className="bg-white border border-gray-300 rounded-lg" />;
+  return (
+    <svg
+      ref={svgRef}
+      width={width}
+      height={height}
+      style={{ backgroundColor: 'var(--panel-content-bg)' }}
+    />
+  );
 };
 
 export default Graph;
