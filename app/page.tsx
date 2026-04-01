@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { PiPlayFill } from "react-icons/pi";
 import { TbDotsDiagonal, TbDotsDiagonal2, TbDotsVertical } from "react-icons/tb";
-import { FiMessageSquare } from "react-icons/fi";
+import { FiMessageSquare, FiSave } from "react-icons/fi";
 import CodeEditor from "./components/editor";
 import DraggableComponent from "./components/draggable";
 import GraphPanel from "./components/GraphPanel";
@@ -13,11 +13,19 @@ import DictPanel from "./components/DictPanel";
 import SettingsMenu from "./components/SettingsMenu";
 import TimelineSlider from "./components/TimelineSlider";
 import AIChatPanel from "./components/AIChatPanel";
+import SavesPanel from "./components/SavesPanel";
 
 import { RunResponse, BackendStructure, TimelineEvent, TimelineState } from "./types/backend";
 import type { ContextAttachment } from "./types/ai";
 
 type PanelKind = BackendStructure["type"] | "log" | "output";
+
+interface SavedSession {
+  id: string;
+  code: string;
+  timestamp: number;
+  title?: string;
+}
 
 interface PanelState {
   id: string;
@@ -93,8 +101,16 @@ export default function App() {
   const [contextAttachments, setContextAttachments] = useState<ContextAttachment[]>([]);
   const [selectedCode, setSelectedCode] = useState<{ text: string; startLine: number; endLine: number } | null>(null);
 
+  // Saves state
+  const [saves, setSaves] = useState<SavedSession[]>([]);
+  const [isSavesPanelOpen, setIsSavesPanelOpen] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [lastSavedCode, setLastSavedCode] = useState<string>(`\n# Welcome to Visual Debugger\n# Paste Python code and click Run\n`);
+
   const handleChange = (value: string) => {
     setCode(value ?? "");
+    // Reset saved state when code changes
+    setIsSaved(false);
   };
 
   // AI context attachment handlers
@@ -149,6 +165,39 @@ export default function App() {
     };
     handleAddContextAttachment(attachment);
   }, [handleAddContextAttachment]);
+
+  // Save handlers
+  const handleSave = useCallback(() => {
+    // Only save if code has changed since last save
+    if (code === lastSavedCode) return;
+    
+    const newSave: SavedSession = {
+      id: `save-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      code: code,
+      timestamp: Date.now(),
+      title: `Session ${new Date().toLocaleTimeString()}`,
+    };
+    
+    setSaves((prev) => {
+      // Add new save and keep only the latest 30
+      const updated = [newSave, ...prev].slice(0, 30);
+      return updated;
+    });
+    setIsSaved(true);
+    setLastSavedCode(code);
+  }, [code, lastSavedCode]);
+
+  const handleRenameSave = useCallback((saveId: string, newName: string) => {
+    setSaves((prev) =>
+      prev.map((save) =>
+        save.id === saveId ? { ...save, title: newName.trim() || save.title } : save
+      )
+    );
+  }, []);
+
+  const handleLoadSave = useCallback((savedCode: string) => {
+    setCode(savedCode);
+  }, []);
 
   // Handle timeline step changes
   const handleStepChange = useCallback(
@@ -402,6 +451,42 @@ export default function App() {
                   AI
                 </button>
 
+                <button
+                  onClick={handleSave}
+                  disabled={isSaved}
+                  className="action-buttons group"
+                  aria-label="Save current workspace"
+                  style={isSaved ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+                >
+                  <div className="button-tooltip">
+                    <span className="tooltip-text">{isSaved ? 'Code saved' : 'Save current code'}</span>
+                    <span className="tooltip-shortcut">Ctrl+Shift+S</span>
+                  </div>
+                  {isSaved ? (
+                    <>
+                      <FiSave size={14} />
+                      Saved ✅
+                    </>
+                  ) : (
+                    <>
+                      <FiSave size={14} />
+                      Save
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setIsSavesPanelOpen(true)}
+                  className="action-buttons group"
+                  aria-label="View Saved Sessions"
+                >
+                  <div className="button-tooltip">
+                    <span className="tooltip-text">View saved code sessions</span>
+                    <span className="tooltip-shortcut">Ctrl+S</span>
+                  </div>
+                  My Workspaces
+                </button>
+
               </div>
             </div>
             <div className="rounded-xl border overflow-hidden" style={{ position: "relative", zIndex: 10, borderColor: 'var(--border)', transition: 'border-color 0.3s ease' }}>
@@ -520,6 +605,15 @@ export default function App() {
         code={code}
         output={output}
         panels={panels}
+      />
+
+      {/* Saves Panel */}
+      <SavesPanel
+        isOpen={isSavesPanelOpen}
+        onClose={() => setIsSavesPanelOpen(false)}
+        saves={saves}
+        onLoadSave={handleLoadSave}
+        onRenameSave={handleRenameSave}
       />
     </div>
   );
