@@ -11,6 +11,7 @@ import ListPanel from "./components/ListPanel";
 import HeapPanel from "./components/HeapPanel";
 import DictPanel from "./components/DictPanel";
 import SettingsMenu from "./components/SettingsMenu";
+import GoogleLoginButton from "./components/GoogleLoginButton";
 import TimelineSlider from "./components/TimelineSlider";
 import AIChatPanel from "./components/AIChatPanel";
 
@@ -343,7 +344,10 @@ export default function App() {
           <img src="/logo.png" alt="Visual Debugger Logo" className="h-12 w-12" />
           <h1 className="text-4xl font-medium" style={{ fontFamily: 'var(--font-instrument-sans)', letterSpacing: 'var(--instrument-sans-letter-spacing)', color: 'var(--text)', transition: 'color 0.3s ease' }}>Visual Debugger</h1>
         </div>
-        <SettingsMenu />
+        <div className="flex items-center gap-3">
+          <GoogleLoginButton />
+          <SettingsMenu />
+        </div>
       </div>
 
       {/* Everything else */}
