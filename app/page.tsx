@@ -235,6 +235,8 @@ export default function App() {
       }
 
       setOutput(data.output || "");
+      if (data.error) setError(data.error);
+      if (data.error_line) setHighlightedLine(data.error_line);
 
       // Store timeline data
       if (data.timeline && Array.isArray(data.timeline)) {

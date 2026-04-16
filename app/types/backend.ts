@@ -45,6 +45,7 @@ export interface RunResponse {
   status: string;
   output: string;
   error?: string;
+  error_line?: number;
   graph?: {
     nodes: BackendGraphNode[];
     links: BackendGraphLink[];

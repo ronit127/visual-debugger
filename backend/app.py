@@ -864,8 +864,15 @@ def _worker_run_code(payload: Dict[str, Any], out_queue) -> None:
             exec(compiled, user_globals, user_globals)
     except BaseException as exc:
         status = "error"
-        error = f"{type(exc).__name__}: {exc}"
-        recorder.emit(event="exception", line=None, func=None, op=error, frame=None)
+        import traceback as _tb
+        error_line = None
+        frames = _tb.extract_tb(exc.__traceback__)
+        for frame in reversed(frames):
+            if frame.filename == filename:
+                error_line = frame.lineno
+                break
+        error = f"{type(exc).__name__} on line {error_line}: {exc}" if error_line else f"{type(exc).__name__}: {exc}"
+        recorder.emit(event="exception", line=error_line, func=None, op=error, frame=None)
     finally:
         sys.settrace(None)
 
@@ -878,6 +885,7 @@ def _worker_run_code(payload: Dict[str, Any], out_queue) -> None:
         "status": status,
         "output": stdout.getvalue(),
         "error": error,
+        "error_line": error_line,
         "timeline": [e.to_dict() for e in recorder.events],
         "timeline_states": recorder.states,
         "structures": _collect_structures(user_globals),
