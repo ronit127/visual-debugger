@@ -27,6 +27,7 @@
 # =========================
 
 # Virtual Environment
+.venv/
 backend/.venv/
 backend/venv/
 backend/env/

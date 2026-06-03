@@ -130,17 +130,6 @@ const SettingsMenu: React.FC = () => {
             </div>
           )}
 
-          {/* Sign Out */}
-          <button
-            onClick={() => setIsOpen(false)}
-            className="w-full px-4 py-3 text-left hover:opacity-80 transition-opacity flex items-center gap-2"
-            style={{
-              color: "var(--text)",
-              cursor: "pointer",
-            }}
-          >
-            <span className="text-sm">Sign Out</span>
-          </button>
         </div>
       )}
 
